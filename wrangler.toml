@@ -1,15 +1,27 @@
-# Cloudflare Worker that serves the built site from ./dist.
+# Cloudflare Worker: serves the built site from ./dist and runs the demo line's
+# backend under /api (worker/index.js).
+#
 # `npm run deploy` builds and publishes it. Point yello412.com at it under
 # Workers & Pages > yello412-site > Settings > Domains & Routes.
-#
-# The phone-line backend (Retell webhooks, owner texts) can live in this same
-# Worker later: add `main = "src/worker.js"` and
-# `run_worker_first = ["/api/*"]` under [assets].
+# Secrets: see .dev.vars.example (`npx wrangler secret put NAME` for each).
 
 name = "yello412-site"
+main = "worker/index.js"
 compatibility_date = "2025-09-01"
 
 [assets]
 directory = "./dist"
+binding = "ASSETS"
 not_found_handling = "404-page"
 html_handling = "drop-trailing-slash"
+run_worker_first = ["/api/*"]
+
+[vars]
+# The Twilio number the demo texts and emergency rings come from, e.g. "+14125550100".
+TWILIO_FROM = ""
+
+# Optional: dedupes Retell retries and caps demo texts at 3 per number per day.
+# Create it with `npx wrangler kv namespace create DEMO_KV`, then uncomment with the id it prints.
+# [[kv_namespaces]]
+# binding = "DEMO_KV"
+# id = ""

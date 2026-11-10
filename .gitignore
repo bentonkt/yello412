@@ -3,3 +3,6 @@ dist/
 .wrangler/
 .dev.vars
 .DS_Store
+
+# created by npm run agent; commit it if you want teammates to update the same agent
+# agent/retell-ids.json

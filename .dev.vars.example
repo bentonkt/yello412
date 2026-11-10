@@ -1,0 +1,22 @@
+# Copy to .dev.vars (never commit it) for `npm run dev` and `npm run agent`.
+# For the live site, set each with: npx wrangler secret put NAME
+
+# Retell dashboard › API Keys. Use the key with the webhook badge.
+RETELL_API_KEY=
+
+# Where `npm run agent` tells Retell to send the agent's tool calls and the
+# call-ended webhook. Until yello412.com points at the Worker, put the
+# https://yello412-site.<you>.workers.dev address `npm run deploy` prints here.
+# Once the domain is live, empty it and run `npm run agent` again: empty means
+# siteUrl from site.config.json.
+PUBLIC_URL=
+
+# Twilio console › Account info. Leave empty until texting is approved;
+# the demo still works and alerts still go to Telegram.
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+
+# Telegram: message @BotFather to create a bot (token), then message the bot
+# and open https://api.telegram.org/bot<TOKEN>/getUpdates to find your chat id.
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_CHAT_ID=

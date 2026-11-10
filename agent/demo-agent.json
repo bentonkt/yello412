@@ -1,0 +1,19 @@
+{
+  "_comment": "Settings for the Retell demo agent. `npm run agent` pushes this file plus demo-prompt.md to Retell. Prices, trial and contact numbers come from site.config.json. The Worker also reads textTheCaller and ringOnEmergency, so after changing either run `npm run deploy` and then `npm run agent`.",
+
+  "agentName": "Yello 412 demo",
+  "llmModel": "gpt-4.1",
+  "voiceId": "retell-Cimo",
+
+  "beginMessage": "Hey, this is the Yello 412 demo line. Heads up, this call is recorded. Tell me your business name and I'll answer as your line, or just say skip.",
+
+  "maxCallMinutes": 3,
+  "endAfterSilenceSeconds": 20,
+  "interruptionSensitivity": 0.8,
+  "responsiveness": 1,
+  "enableBackchannel": true,
+  "dataRetentionDays": 30,
+
+  "textTheCaller": false,
+  "ringOnEmergency": true
+}
