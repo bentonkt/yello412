@@ -506,8 +506,8 @@ html.gl-ready .gl-canvas { opacity: 1; }
 html.gl main, html.gl .footer { position: relative; z-index: 1; }
 
 /* hero: the city shows through; the copy keeps a dark backing */
-html.gl .pin, html.gl .hazard-gap { background: transparent; }
-html.gl .hero-art, html.gl .tape, html.gl .tk1, html.gl .cue-flat { display: none; }
+html.gl .pin { background: transparent; }
+html.gl .hero-art, html.gl .tape, html.gl .hazard-gap, html.gl .hazard, html.gl .tk1, html.gl .cue-flat { display: none; }
 html.gl .cue-gl { display: inline; }
 html.gl .hero::before {
   content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;

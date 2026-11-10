@@ -144,7 +144,7 @@ export function demoText(job) {
 
 function emergencyTwiml(job) {
   const biz = clean(job.business_name, 40) || 'your business';
-  const say = `Emergency call for ${biz}. ${clean(job.problem, 70)}. ${clean(job.caller_name, 40)} in ${clean(job.area, 60)}. Check your texts. This is the call ${site.businessName} makes to the owner for an emergency.`;
+  const say = `Emergency call for ${biz}. ${clean(job.problem, 70)}. ${clean(job.caller_name, 40)} in ${clean(job.area, 60)}. Check your texts. This is the call ${agentCfg.spokenName || site.businessName} makes to the owner for an emergency.`;
   return `<Response><Pause length="1"/><Say voice="Polly.Matthew">${xml(say)}</Say><Pause length="1"/><Say voice="Polly.Matthew">${xml(say)}</Say></Response>`;
 }
 

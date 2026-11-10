@@ -125,7 +125,12 @@ test('emergency also rings; missing Twilio still alerts', async () => {
   const emergency = call({ transcript_with_tool_calls: [{ role: 'tool_call_invocation', name: 'save_job', arguments: JSON.stringify({ ...job, category: 'emergency' }) }] });
   const r = await handleEndedCall(emergency, env);
   assert.equal(r.outcome.ring, 'placed');
-  assert.ok(sent.some((s) => s.url.endsWith('/Calls.json')));
+  const ring = sent.find((s) => s.url.endsWith('/Calls.json'));
+  assert.ok(ring);
+  // the voice says the name one digit at a time, never "412"
+  const said = new URLSearchParams(ring.body).get('Twiml');
+  assert.match(said, /Yello four one two makes to the owner/);
+  assert.doesNotMatch(said, /412/);
 
   sent = fakeFetch();
   const mail = fakeMail();

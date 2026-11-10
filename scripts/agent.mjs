@@ -49,6 +49,10 @@ function spoken(num) {
 
 // ---------- prompt ----------
 
+// A voice reads "Yello 412" as "four hundred twelve". Everything the agent says, or
+// learns the name from, gets the spelled-out name from demo-agent.json instead.
+const aloud = (text) => (cfg.spokenName ? text.replaceAll(site.businessName, cfg.spokenName) : text);
+
 const ryan = spoken(e164(site.contactCell));
 const reveal = cfg.textTheCaller
   ? [
@@ -57,12 +61,12 @@ const reveal = cfg.textTheCaller
         ? 'If it was an emergency, also tell them their phone will ring a few seconds after they hang up, because that\'s the call the owner gets for an emergency.'
         : '',
     ].filter(Boolean).join(' ')
-  : 'Then read them the text the owner would get, in this order: the category, the problem in a few words, the caller\'s name and number, the area, and when they want it. End with "and it says you told them the owner will call back."';
+  : 'Then tell them what the text to the owner would say, like you\'re reading it out loud: the category, the problem in a few words, the caller\'s name and number, the area, when they want it, and that the caller was told the owner will call back.';
 const signup = cfg.textTheCaller
   ? `reply YES to the text you'll get after this call, or text Ryan at ${ryan}. Ryan will set up a time to come by.`
   : `text Ryan at ${ryan} and he'll set up a time to come by.`;
 
-const prompt = readFileSync(join(root, 'agent', 'demo-prompt.md'), 'utf8')
+const prompt = aloud(readFileSync(join(root, 'agent', 'demo-prompt.md'), 'utf8'))
   .replaceAll('[[REVEAL]]', reveal)
   .replaceAll('[[SIGNUP]]', signup)
   .replaceAll('[[PRICE_LINE]]', String(site.priceLine))
@@ -107,7 +111,7 @@ const tools = [
 
 const llmBody = {
   start_speaker: 'agent',
-  begin_message: cfg.beginMessage,
+  begin_message: aloud(cfg.beginMessage),
   general_prompt: prompt,
   general_tools: tools,
   model_config: { type: 'cascading', primary: { model: cfg.llmModel } },
@@ -118,6 +122,8 @@ const agentBody = (llmId, llmVersion) => ({
   response_engine: { type: 'retell-llm', llm_id: llmId, ...(llmVersion != null ? { version: llmVersion } : {}) },
   voice_id: cfg.voiceId,
   language: 'en-US',
+  stt_mode: cfg.sttMode || 'fast',
+  ...(cfg.boostedKeywords?.length ? { boosted_keywords: cfg.boostedKeywords } : {}),
   webhook_url: `${baseUrl}/api/retell/webhook`,
   webhook_events: ['call_ended'],
   max_call_duration_ms: Math.round(cfg.maxCallMinutes * 60_000),
@@ -181,6 +187,17 @@ async function saveLlm() {
       return send({ ...rest, model: cfg.llmModel });
     }
     throw err;
+  }
+}
+
+// A published version is read-only. Start a draft from it and edit that instead;
+// Retell gives the LLM a matching draft. The demo number stays on the published
+// version until the end of this script.
+if (ids.agent_id) {
+  const latest = await retell('GET', `/get-agent/${ids.agent_id}`);
+  if (latest.is_published) {
+    const draft = await retell('POST', `/create-agent-version/${ids.agent_id}`, { base_version: latest.version });
+    console.log(`Version ${latest.version} is published, so started draft version ${draft.version} from it.`);
   }
 }
 
