@@ -83,7 +83,7 @@ If a visitor's device asks for reduced motion, or JavaScript is off, everything 
 
 ## The 3D scene
 
-Behind the home page is a stylised Pittsburgh at night: the three rivers, the yellow bridges, downtown, the stadiums, the incline. The logo hangs over the Point as a giant speech bubble wrapped in caution tape. Rooftops light up red with calls nobody's answering. Scrolling through the hero peels the tape; once it's off, the bubble picks up, and each call turns yellow and sends a beam to it. From there the camera flies to a new view for each section, the yellow section floods out of the bubble, and in "How it works" a beam lands on the phone each time the text arrives. Clicking or tapping the city places a call from that spot.
+Behind the home page is a stylised Pittsburgh at night: the three rivers, the yellow bridges, downtown, the stadiums, the incline. The logo hangs over the Point as a giant speech bubble. Rooftops light up red with calls nobody's answering. Halfway through scrolling the hero, the bubble picks up: it brightens and rings, and each call turns yellow and sends a beam to it. From there the camera flies to a new view for each section, the yellow section floods out of the bubble, and in "How it works" a beam lands on the phone each time the text arrives. Clicking or tapping the city places a call from that spot. A link to a far-off section (How it works, Pricing, Hear the demo) doesn't scroll there: yellow floods out from the link, the page and camera jump behind it, and it drains into the bubble. Hops shorter than a screen and a half scroll as normal.
 
 **When it runs.** A short script in the home page's `<head>` adds `html.gl` if the browser has WebGL 2 with a real graphics card, the visitor hasn't asked for reduced motion or data saving, and the address doesn't say `?3d=off`. `main.js` then loads `scene.js`, and the scene adds `html.gl-ready` once it's drawing. Every 3D style in `styles.css` sits under `html.gl` (the last section of the file). If the scene fails to load, loses its graphics context, or can't hold about 30 frames a second after lowering its own quality three times, it removes `html.gl` and the page is the flat design again.
 
@@ -96,7 +96,7 @@ Behind the home page is a stylised Pittsburgh at night: the three rivers, the ye
 | `geo.js` | The map: where the rivers, hills and street grids are, and where the bubble hangs. |
 | `city.js` | Where each building stands; the hand-placed landmarks. |
 | `world.js`, `shaders.js` | Ground, water, buildings, bridges, stadiums and lights, and the code that shades them. |
-| `bubble.js` | The speech bubble, its caution tape and its rings. |
+| `bubble.js` | The speech bubble and its rings. |
 | `calls.js` | The calls: beacons, beams and job tags. The jobs on the tags are the `JOBS` list at the top. |
 | `dom.js` | The parts in the page itself: the phone that turns, the cards that tilt. |
 

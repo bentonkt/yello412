@@ -1,5 +1,5 @@
-// The giant "yello 412" speech bubble that hangs over downtown, the caution
-// tape wrapped around it, and the rings it gives off when it's answering.
+// The giant "yello 412" speech bubble that hangs over the Point, and the rings
+// it gives off when it's answering.
 //
 // Built to the same proportions as the logo in the nav. One unit here is 1em
 // of the logo's type; the whole thing is scaled up by EM.
@@ -12,7 +12,7 @@ const DEPTH = 0.34, BEVEL = 0.07;
 const HALF_Z = DEPTH / 2 + BEVEL;
 
 const FONT = 'Archivo, "Arial Black", system-ui, sans-serif';
-const ASPHALT = '#17191C', YELLOW = '#FFDD00', CONCRETE = '#EDEAE4';
+const ASPHALT = '#17191C', CONCRETE = '#EDEAE4';
 
 function spaced(ctx, px) {
   try { ctx.letterSpacing = px + 'px'; } catch (e) { /* older browsers: normal spacing */ }
@@ -52,56 +52,6 @@ void main() {
   col += vec3(1., .96, .78) * smoothstep(.5, .95, R.y) * .16;    // a soft highlight along the top edge
   col += uYellow * pow(clamp(1. - ndv, 0., 1.), 3.) * .2;
   col = col * uPower + uYellow * uFlash;
-  gl_FragColor = vec4(col, 1.);
-  #include <colorspace_fragment>
-}
-`;
-
-const TAPE_VERT = /* glsl */`
-attribute float aU;
-attribute float aSide;
-attribute vec3 aOut;
-uniform float uPeel;
-uniform float uTime;
-varying vec2 vUv;
-varying float vD;
-varying float vLift;
-varying vec3 vOut;
-varying vec3 vV;
-void main() {
-  // Everything behind the tear is gone; just ahead of it the tape lifts and flaps.
-  float tear = mix(-.03, 1.03, uPeel);
-  float d = aU - tear;
-  float lift = uPeel > .001 ? 1. - smoothstep(0., .24, d) : 0.;
-  lift *= lift;
-  float flap = sin(uTime * 9. + aU * 60.) * .5 + sin(uTime * 13.7 + aU * 31.) * .5;
-  vec3 p = position;
-  p += aOut * lift * (.55 + .14 * flap);
-  p += aOut * aSide * lift * .13 * sin(uTime * 6. + aU * 22.);
-  vec4 mv = modelViewMatrix * vec4(p, 1.);
-  vUv = uv;
-  vD = d;
-  vLift = lift;
-  vOut = normalMatrix * aOut;
-  vV = -mv.xyz;
-  gl_Position = projectionMatrix * mv;
-}
-`;
-const TAPE_FRAG = /* glsl */`
-uniform sampler2D uMap;
-uniform float uScroll;
-uniform vec3 uBack;
-varying vec2 vUv;
-varying float vD;
-varying float vLift;
-varying vec3 vOut;
-varying vec3 vV;
-void main() {
-  if (vD < 0.) discard;
-  vec3 col = texture2D(uMap, vec2(vUv.x + uScroll, vUv.y)).rgb;
-  float facing = dot(normalize(vOut), normalize(vV));
-  if (facing < 0.) col = uBack * (.7 + .3 * vUv.y);           // the sticky side
-  col *= 1. - .25 * vLift * (1. - vUv.y);
   gl_FragColor = vec4(col, 1.);
   #include <colorspace_fragment>
 }
@@ -221,99 +171,6 @@ export function createBubble(shared, renderer) {
   }
   logo.position.x = -(0.12 + w412) / 2;
 
-  // ---------- caution tape ----------
-  const tapes = [];
-  function tapeTexture(text) {
-    const H = 128;
-    const c = document.createElement('canvas');
-    const g = c.getContext('2d');
-    const font = `900 ${H * 0.5}px ${FONT}`;
-    g.font = font;
-    spaced(g, H * 0.05);
-    const unit = text + '  ///  ';
-    const uw = g.measureText(unit).width;
-    const reps = Math.max(1, Math.round(1536 / uw));
-    c.width = Math.ceil(uw * reps); c.height = H;
-    g.fillStyle = ASPHALT; g.fillRect(0, 0, c.width, H);
-    g.fillStyle = YELLOW;
-    g.fillRect(0, 0, c.width, H * 0.07); g.fillRect(0, H * 0.93, c.width, H * 0.07);
-    g.font = font;
-    spaced(g, H * 0.05);
-    g.textBaseline = 'middle';
-    for (let i = 0; i < reps; i++) g.fillText(unit, i * uw + H * 0.2, H * 0.52);
-    const t = texture(c, renderer);
-    t.wrapS = THREE.RepeatWrapping;
-    return { tex: t, aspect: c.width / H };
-  }
-  function addTape(text, alpha, width, startAt, shift) {
-    const { tex, aspect } = tapeTexture(text);
-    const ca = Math.cos(alpha), sa = Math.sin(alpha);
-    const margin = 0.04;
-    // Half the length of the wrap: the longest the body gets under the strip.
-    let lo = 1e3, hi = -1e3;
-    for (const o of [shift - width / 2, shift, shift + width / 2]) {
-      const tx = Math.abs(ca) > 1e-3 ? [(-hw + o * sa) / ca, (hw + o * sa) / ca] : [-1e3, 1e3];
-      const ty = Math.abs(sa) > 1e-3 ? [(-hh - o * ca) / sa, (hh - o * ca) / sa] : [-1e3, 1e3];
-      const t0 = Math.max(Math.min(tx[0], tx[1]), Math.min(ty[0], ty[1]));
-      const t1 = Math.min(Math.max(tx[0], tx[1]), Math.max(ty[0], ty[1]));
-      lo = Math.min(lo, t0); hi = Math.max(hi, t1);
-    }
-    const a = (hi - lo) / 2 + margin, mid = (hi + lo) / 2;
-    const b = HALF_Z + margin;
-    // The wrap is a rounded rectangle seen from the bubble's edge: across the
-    // front, round the end, across the back, round the other end.
-    const rc = 0.11;
-    const la = 2 * (a - rc), lb = 2 * (b - rc), lc = rc * Math.PI / 2;
-    const P = 2 * la + 2 * lb + 4 * lc;
-    const corner = (cd, cz, phi) => [cd + rc * Math.sin(phi), cz + rc * Math.cos(phi), Math.sin(phi), Math.cos(phi)];
-    function along(s) {
-      if (s < la) return [-(a - rc) + s, b, 0, 1];
-      if ((s -= la) < lc) return corner(a - rc, b - rc, s / rc);
-      if ((s -= lc) < lb) return [a, (b - rc) - s, 1, 0];
-      if ((s -= lb) < lc) return corner(a - rc, -(b - rc), Math.PI / 2 + s / rc);
-      if ((s -= lc) < la) return [(a - rc) - s, -b, 0, -1];
-      if ((s -= la) < lc) return corner(-(a - rc), -(b - rc), Math.PI + s / rc);
-      if ((s -= lc) < lb) return [-a, -(b - rc) + s, -1, 0];
-      return corner(-(a - rc), b - rc, Math.PI * 1.5 + (s - lb) / rc);
-    }
-    const repeat = Math.max(1, Math.round(P / (width * aspect)));
-    const N = 200;
-    const pos = [], uvs = [], us = [], sides = [], outs = [], idx = [];
-    for (let i = 0; i <= N; i++) {
-      const u = i / N;
-      const [d, z, nd, nz] = along((u + startAt) % 1 * P);
-      for (const side of [-1, 1]) {
-        const o = shift + side * width / 2;
-        pos.push(ca * (d + mid) - sa * o, sa * (d + mid) + ca * o, z);
-        uvs.push(u * repeat, side * 0.5 + 0.5);
-        us.push(u); sides.push(side);
-        outs.push(ca * nd, sa * nd, nz);
-      }
-      if (i < N) { const k = i * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
-    }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-    g.setAttribute('aU', new THREE.Float32BufferAttribute(us, 1));
-    g.setAttribute('aSide', new THREE.Float32BufferAttribute(sides, 1));
-    g.setAttribute('aOut', new THREE.Float32BufferAttribute(outs, 3));
-    g.setIndex(idx);
-    const mat = new THREE.ShaderMaterial({
-      uniforms: {
-        uMap: { value: tex }, uPeel: { value: 0 }, uScroll: { value: 0 }, uTime: shared.uTime,
-        uBack: { value: new THREE.Color(0x4A4F55) },
-      },
-      vertexShader: TAPE_VERT, fragmentShader: TAPE_FRAG, side: THREE.DoubleSide,
-    });
-    const mesh = new THREE.Mesh(g, mat);
-    mesh.frustumCulled = false;
-    logo.add(mesh);
-    tapes.push({ mesh, mat, speed: (tapes.length % 2 ? -1 : 1) * 0.012 });
-  }
-  addTape('MISSED CALL', -0.14, 0.3, 0.97, -0.2);
-  addTape('NO ANSWER', 1.0, 0.27, 0.02, -0.55);
-  addTape('VOICEMAIL FULL', -0.82, 0.27, 0.5, 0.62);
-
   // ---------- rings and glow ----------
   const auraMat = new THREE.ShaderMaterial({
     uniforms: {
@@ -347,16 +204,11 @@ export function createBubble(shared, renderer) {
     },
     bump(amount) { bump = Math.min(1.5, bump + amount); },
     flash(amount) { flash = Math.max(flash, amount); },
+    // Turn to face the camera at once (after the camera has jumped).
+    snap() { first = true; },
 
-    update(dt, time, camera, { peel, active, pointer }) {
-      // tape
-      for (let i = 0; i < tapes.length; i++) {
-        tapes[i].mat.uniforms.uPeel.value = peel[i];
-        tapes[i].mat.uniforms.uScroll.value = time * tapes[i].speed;
-        tapes[i].mesh.visible = peel[i] < 0.999;
-      }
-
-      // power: dimmer while it's taped up, full once it's answering
+    update(dt, time, camera, { active, pointer }) {
+      // power: dimmer while calls are going unanswered, full once it's answering
       power += ((active ? 1 : 0.8) - power) * Math.min(1, dt * 3);
       bump *= Math.exp(-dt * 7);
       flash *= Math.exp(-dt * 3.2);

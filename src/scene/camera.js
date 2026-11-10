@@ -56,6 +56,8 @@ export function createRig(camera) {
 
   return {
     cur,
+    // Next update lands on the goal at once instead of gliding to it.
+    snap() { started = false; },
     // story: 0..SHOTS.length-1, fractional between shots. aspect: width / height.
     aim(story, aspect) {
       const wide = Math.min(1, Math.max(0, (aspect - 0.72) / 0.6));

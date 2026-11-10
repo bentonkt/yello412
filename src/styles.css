@@ -496,11 +496,18 @@ html.gl .gl-canvas {
   z-index: 0; pointer-events: none; opacity: 0; transition: opacity .7s ease;
 }
 html.gl-ready .gl-canvas { opacity: 1; }
+
+/* the yellow that covers a jump to a far-off section (the scene sets --cx, --cy, --cr) */
+.gl-cut {
+  display: none; position: fixed; inset: 0; z-index: 60; pointer-events: none; background: var(--yellow);
+  clip-path: circle(var(--cr, 0px) at var(--cx, 50%) var(--cy, 50%));
+}
+.gl-cut.on { display: block; }
 html.gl main, html.gl .footer { position: relative; z-index: 1; }
 
 /* hero: the city shows through; the copy keeps a dark backing */
 html.gl .pin, html.gl .hazard-gap { background: transparent; }
-html.gl .hero-art, html.gl .tape-voicemail, html.gl .tk1, html.gl .cue-flat { display: none; }
+html.gl .hero-art, html.gl .tape, html.gl .tk1, html.gl .cue-flat { display: none; }
 html.gl .cue-gl { display: inline; }
 html.gl .hero::before {
   content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
@@ -522,9 +529,6 @@ html.gl-ready.gl-called .gl-hint { opacity: 0; transition-delay: 0s; }
 .hint-touch { display: none; }
 @media (hover: none) { .hint-fine { display: none; } .hint-touch { display: inline; } }
 @keyframes hintdot { 0% { box-shadow: 0 0 0 0 rgba(255, 221, 0, .7); } 100% { box-shadow: 0 0 0 14px rgba(255, 221, 0, 0); } }
-
-/* the tape across the headline waits for the city before it rips */
-html.gl:not(.gl-ready) .tape-rip .band, html.gl:not(.gl-ready) .tape-rip .flap { animation-play-state: paused; }
 
 @media (min-width: 901px) {
   html.gl .pin { height: calc(100vh + 1000px); }

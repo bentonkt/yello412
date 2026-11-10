@@ -8,7 +8,7 @@
 //   city.js     where the buildings stand
 //   world.js    ground, buildings, bridges, lights
 //   shaders.js  the GLSL that draws the city
-//   bubble.js   the logo in the sky and its caution tape
+//   bubble.js   the logo in the sky and its rings
 //   calls.js    the calls: beacons, beams, job tags
 //   camera.js   the shots the camera flies between as you scroll
 //   dom.js      the tilting phone and cards in the page
@@ -187,9 +187,70 @@ async function start() {
     if (calls.placeAt(time, hit.x, hit.z, active)) root.classList.add('gl-called');
   }
 
+  // ---------- jumping to a section ----------
+  // A link to a far-off section would scroll the whole page past and drag the
+  // camera through every shot on the way. Instead: yellow floods out from the
+  // link, the page and camera jump behind it, and it drains into the bubble.
+  const cutEl = document.createElement('div');
+  cutEl.className = 'gl-cut';
+  cutEl.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(cutEl);
+  const cut = { phase: 0, t: 0, x: 0, y: 0, reach: 0, el: null, hash: '' };   // phase: 0 idle, 1 flooding, 2 covered, 3 draining
+  const FLOOD = 0.36, HOLD = 0.12, DRAIN = 0.6;
+  const reachFrom = (x, y) => Math.hypot(Math.max(x, width - x), Math.max(y, window.innerHeight - y)) + 8;
+  function paintCut(r) {
+    cutEl.style.setProperty('--cx', cut.x.toFixed(1) + 'px');
+    cutEl.style.setProperty('--cy', cut.y.toFixed(1) + 'px');
+    cutEl.style.setProperty('--cr', r.toFixed(1) + 'px');
+  }
+  const destOf = (el) => Math.max(0, Math.min(el.getBoundingClientRect().top + window.scrollY, document.documentElement.scrollHeight - window.innerHeight));
+  function onNav(e) {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const a = e.target.closest && e.target.closest('a[href*="#"]');
+    if (!a || a.target === '_blank' || a.classList.contains('skip')) return;
+    const url = new URL(a.href, window.location.href);
+    if (url.origin !== window.location.origin || url.pathname !== window.location.pathname || url.hash.length < 2) return;
+    const el = document.getElementById(decodeURIComponent(url.hash.slice(1)));
+    if (!el) return;
+    if (cut.phase) { e.preventDefault(); return; }
+    if (Math.abs(destOf(el) - window.scrollY) < window.innerHeight * 1.5) return;   // a short hop: the normal smooth scroll is fine
+    e.preventDefault();
+    let x = e.clientX, y = e.clientY;
+    if (!x && !y) { const r = a.getBoundingClientRect(); x = r.left + r.width / 2; y = r.top + r.height / 2; }   // pressed Enter on it
+    x = Math.min(width, Math.max(0, x)); y = Math.min(window.innerHeight, Math.max(0, y));
+    cut.phase = 1; cut.t = 0; cut.x = x; cut.y = y; cut.reach = reachFrom(x, y); cut.el = el; cut.hash = url.hash;
+    paintCut(0);
+    cutEl.classList.add('on');
+  }
+  function stepCut(dt, bubbleX, bubbleY) {
+    cut.t += dt;
+    if (cut.phase === 1) {
+      const k = clamp01(cut.t / FLOOD);
+      paintCut(k * k * cut.reach);
+      if (k < 1) return;
+      // Covered. Jump the page the way the link would have, minus the scrolling.
+      root.style.scrollBehavior = 'auto';
+      if (window.location.hash !== cut.hash) window.location.hash = cut.hash;   // history and keyboard focus follow, as with any link
+      window.scrollTo(0, destOf(cut.el));
+      rig.snap();
+      bubble.snap();
+      cut.phase = 2; cut.t = 0;
+      paintCut(1e5);
+    } else if (cut.phase === 2) {
+      if (cut.t < HOLD) return;                           // a few frames for the new view to settle
+      root.style.scrollBehavior = '';
+      cut.phase = 3; cut.t = 0;
+      cut.x = Math.min(width, Math.max(0, bubbleX)); cut.y = Math.min(window.innerHeight, Math.max(0, bubbleY));
+      cut.reach = reachFrom(cut.x, cut.y);
+      paintCut(cut.reach);
+    } else {
+      const k = clamp01(cut.t / DRAIN);
+      paintCut(Math.pow(1 - k, 2.4) * cut.reach);
+      if (k >= 1) { cut.phase = 0; cutEl.classList.remove('on'); }
+    }
+  }
+
   // ---------- frame ----------
-  const peel = [0, 0, 0];
-  const PEEL = [[0.05, 0.33], [0.3, 0.33], [0.56, 0.36]];
   let last = 0, raf = 0, introT = 0, shown = false, warm = 0;
   let pulseAt = 0, nextRing = 0, nextDelivery = 0, measureAt = 0;
   let ema = 16, slowFor = 0, level = 0;
@@ -227,8 +288,7 @@ async function start() {
     const y = window.scrollY;
     const p = clamp01(y / heroRun);
     const wasActive = active;
-    active = p >= 0.9;
-    for (let i = 0; i < 3; i++) peel[i] = clamp01((p - PEEL[i][0]) / PEEL[i][1]);
+    active = p >= 0.5;                                   // halfway through the hero, the bubble picks up
     if (active !== wasActive) {
       root.setAttribute('data-live', active ? '1' : '0');
       if (active) { bubble.flash(1); ringOut(); nextRing = time + 1.1; }
@@ -243,7 +303,7 @@ async function start() {
 
     rig.aim(storyAt(y), width / height);
     rig.update(dt, time, pointer, 1 - Math.pow(1 - clamp01(introT / 3), 3), width, height);
-    bubble.update(dt, time, camera, { peel, active, pointer });
+    bubble.update(dt, time, camera, { active, pointer });
     world.lightMat.uniforms.uPx.value = (height * ratio) / (2 * Math.tan((camera.fov * Math.PI) / 360));
 
     dom.update(dt, time, pointer, window.innerHeight);
@@ -263,6 +323,8 @@ async function start() {
     const hx = Math.abs(tmp.x - cx), hy = hx * (width / height) * 0.5;
     avoid[0] = cx - hx; avoid[1] = cx + hx; avoid[2] = cy - hy; avoid[3] = cy + hy;
     calls.update(time, dt, camera, { active, rate: small ? 0.75 : 1, box, avoid, onArrive: () => bubble.bump(0.5) });
+
+    if (cut.phase) stepCut(dt, (cx * 0.5 + 0.5) * width, (0.5 - cy * 0.5) * height);
 
     // The yellow section floods the screen out of the bubble, then drains back into it.
     if (wipeSec && wipeBg) {
@@ -309,12 +371,16 @@ async function start() {
   window.addEventListener('resize', resize);
   window.addEventListener('pointermove', onPointer, { passive: true });
   window.addEventListener('click', onClick);
+  document.addEventListener('click', onNav);
   window.addEventListener('load', measure);
   stop = () => {
     cancelAnimationFrame(raf);
     window.removeEventListener('resize', resize);
     window.removeEventListener('pointermove', onPointer);
     window.removeEventListener('click', onClick);
+    document.removeEventListener('click', onNav);
+    cutEl.remove();
+    root.style.scrollBehavior = '';
     try { renderer.dispose(); } catch (e) { /* already gone */ }
   };
 
