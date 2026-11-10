@@ -13,6 +13,7 @@ import { createHash } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { build as bundle } from 'esbuild';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const src = join(root, 'src');
@@ -68,6 +69,19 @@ const staticDirs = ['fonts', 'img'];
 const staticFiles = ['styles.css', 'main.js'];
 for (const d of staticDirs) cpSync(join(src, d), join(out, d), { recursive: true });
 for (const f of staticFiles) cpSync(join(src, f), join(out, f));
+
+// The 3D scene (src/scene/*.js plus three.js) is bundled into one file that the
+// home page loads only on browsers that can draw it.
+await bundle({
+  entryPoints: [join(src, 'scene', 'index.js')],
+  outfile: join(out, 'scene.js'),
+  bundle: true,
+  minify: true,
+  format: 'esm',
+  target: ['es2020'],
+  legalComments: 'eof',
+  logLevel: 'warning',
+});
 
 function hashOf(path) {
   return createHash('sha256').update(readFileSync(path)).digest('hex').slice(0, 10);
@@ -156,6 +170,9 @@ writeFileSync(join(out, '_headers'), `/*
   Cache-Control: public, max-age=31536000, immutable
 
 /main.js
+  Cache-Control: public, max-age=31536000, immutable
+
+/scene.js
   Cache-Control: public, max-age=31536000, immutable
 `);
 

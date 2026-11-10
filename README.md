@@ -1,17 +1,19 @@
 # yello412.com
 
-The Yello 412 website and the demo line behind it. The site is plain HTML, CSS and JavaScript with a tiny build step. The demo line is a Retell voice agent plus a small Cloudflare Worker that texts the caller and alerts us. Everything deploys as one Cloudflare Worker.
+The Yello 412 website and the demo line behind it. The site is plain HTML, CSS and JavaScript with a small build step. The home page sits on top of a 3D scene (a night-time Pittsburgh, drawn with three.js); browsers that can't draw it get the same page in its flat design. The demo line is a Retell voice agent plus a small Cloudflare Worker that texts the caller and alerts us. Everything deploys as one Cloudflare Worker.
 
 ## Run it
 
 Needs Node 20 or newer.
 
 ```bash
-npm install          # only installs wrangler (Cloudflare's CLI)
+npm install          # wrangler (Cloudflare's CLI), three.js and esbuild
 npm run preview      # builds, then serves http://localhost:4120
 ```
 
 `npm run dev` runs the same site inside Cloudflare's local runtime, with the real security headers.
+
+Add `?3d=off` to the address to see the flat design, or `?3d=force` to get the 3D scene on a machine without a graphics card.
 
 ## Change the phone numbers, prices or email
 
@@ -56,10 +58,11 @@ src/privacy.html      privacy and text-message terms
 src/404.html          page-not-found
 src/partials/         shared head, nav, footer
 src/styles.css        all styles; brand tokens at the top
-src/main.js           scroll effects (tape peel, ticker, reveals, phone steps)
+src/main.js           scroll effects (tape peel, ticker, reveals, phone steps); loads the 3D scene
+src/scene/            the 3D scene (see "The 3D scene" below)
 src/fonts/            Archivo and Inter, self-hosted (SIL Open Font License)
 src/img/              favicon, app icon, social share image (og.png)
-scripts/build.mjs     fills in config values, writes dist/, robots.txt, sitemap, security headers
+scripts/build.mjs     fills in config values, bundles the scene, writes dist/, robots.txt, sitemap, security headers
 scripts/preview.mjs   local preview server
 scripts/agent.mjs     pushes the demo agent to Retell
 agent/                demo agent prompt and settings
@@ -77,6 +80,29 @@ wrangler.toml         Cloudflare config
 - `.rv` elements fade in once they're on screen. `data-step` on `<html>` switches the phone screen in "How it works".
 
 If a visitor's device asks for reduced motion, or JavaScript is off, everything shows in its finished state.
+
+## The 3D scene
+
+Behind the home page is a stylised Pittsburgh at night: the three rivers, the yellow bridges, downtown, the stadiums, the incline. The logo hangs over the Point as a giant speech bubble wrapped in caution tape. Rooftops light up red with calls nobody's answering. Scrolling through the hero peels the tape; once it's off, the bubble picks up, and each call turns yellow and sends a beam to it. From there the camera flies to a new view for each section, the yellow section floods out of the bubble, and in "How it works" a beam lands on the phone each time the text arrives. Clicking or tapping the city places a call from that spot.
+
+**When it runs.** A short script in the home page's `<head>` adds `html.gl` if the browser has WebGL 2 with a real graphics card, the visitor hasn't asked for reduced motion or data saving, and the address doesn't say `?3d=off`. `main.js` then loads `scene.js`, and the scene adds `html.gl-ready` once it's drawing. Every 3D style in `styles.css` sits under `html.gl` (the last section of the file). If the scene fails to load, loses its graphics context, or can't hold about 30 frames a second after lowering its own quality three times, it removes `html.gl` and the page is the flat design again.
+
+**Files** (`src/scene/`, bundled with three.js into `dist/scene.js`, 640 KB on disk and about 140 KB the way Cloudflare sends it, loaded after the page has painted):
+
+| File | What it is |
+|---|---|
+| `index.js` | Starts everything, runs each frame, ties the scene to the scroll position, watches the frame rate. |
+| `camera.js` | The list of camera shots, one per section. **Edit this to reframe a section.** |
+| `geo.js` | The map: where the rivers, hills and street grids are, and where the bubble hangs. |
+| `city.js` | Where each building stands; the hand-placed landmarks. |
+| `world.js`, `shaders.js` | Ground, water, buildings, bridges, stadiums and lights, and the code that shades them. |
+| `bubble.js` | The speech bubble, its caution tape and its rings. |
+| `calls.js` | The calls: beacons, beams and job tags. The jobs on the tags are the `JOBS` list at the top. |
+| `dom.js` | The parts in the page itself: the phone that turns, the cards that tilt. |
+
+**Reframing a shot.** Each entry in `SHOTS` (`camera.js`) says where the camera is (`p`), what it looks at (`t`), the lens (`fov`), and how far to slide the picture sideways or up so it sits beside the text (`sx`, `sy`); `tall` overrides those on phones. To try values live, open the browser console on the preview and change `yello.scene.SHOTS[0].p`, then scroll a little. `yello.scene.replay()` plays the opening again.
+
+**Before shipping a change to it:** look at the home page on a real phone and on an older laptop, not only on a fast desktop. The scene was tuned on a desktop graphics card; the automatic quality steps are there for slower machines but haven't been tried on many.
 
 ## The demo line
 

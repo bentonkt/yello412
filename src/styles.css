@@ -482,3 +482,174 @@ html.js .rv.in .buzz { animation: buzz .9s ease-in-out .45s both; }
 .lost { display: flex; flex-direction: column; gap: 24px; align-items: flex-start; }
 .lost h1 { font-family: var(--display); font-weight: 900; font-size: clamp(48px, 9vw, 120px); line-height: .92; letter-spacing: -.035em; }
 .lost p { font-size: 20px; line-height: 1.5; color: var(--steel); max-width: 520px; }
+
+/* ---------- 3D mode ----------
+   The home page's <head> adds html.gl before first paint when the browser can
+   draw the scene (src/scene/), and the scene adds html.gl-ready once it is on
+   screen. Everything below applies only then. Without html.gl the page is the
+   flat design above: same content, no canvas. */
+
+.gl-canvas, .gl-hint, .cue-gl, .phone-edge, .phone-glare { display: none; }
+
+html.gl .gl-canvas {
+  display: block; position: fixed; left: 0; top: 0; width: 100%; height: 100vh; height: 100lvh;
+  z-index: 0; pointer-events: none; opacity: 0; transition: opacity .7s ease;
+}
+html.gl-ready .gl-canvas { opacity: 1; }
+html.gl main, html.gl .footer { position: relative; z-index: 1; }
+
+/* hero: the city shows through; the copy keeps a dark backing */
+html.gl .pin, html.gl .hazard-gap { background: transparent; }
+html.gl .hero-art, html.gl .tape-voicemail, html.gl .tk1, html.gl .cue-flat { display: none; }
+html.gl .cue-gl { display: inline; }
+html.gl .hero::before {
+  content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(23, 25, 28, .9) 0%, rgba(23, 25, 28, .62) 28%, rgba(23, 25, 28, 0) 56%),
+    linear-gradient(0deg, rgba(23, 25, 28, .9) 0%, rgba(23, 25, 28, 0) 24%);
+}
+html.gl .ticker { position: relative; z-index: 1; padding-bottom: 14px; }
+html.gl .tk { font-size: clamp(26px, 4vw, 54px); opacity: .55; }
+html.gl .cue-wrap { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+html.gl .gl-hint {
+  position: relative; z-index: 4; display: flex; align-items: center; gap: 10px;
+  font-size: 13px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--concrete);
+  opacity: 0; transition: opacity .6s ease; pointer-events: none;
+}
+html.gl-ready .gl-hint { opacity: 1; transition-delay: 3.2s; }
+html.gl-ready.gl-called .gl-hint { opacity: 0; transition-delay: 0s; }
+.gl-hint-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--yellow); animation: hintdot 1.6s ease-out infinite; }
+.hint-touch { display: none; }
+@media (hover: none) { .hint-fine { display: none; } .hint-touch { display: inline; } }
+@keyframes hintdot { 0% { box-shadow: 0 0 0 0 rgba(255, 221, 0, .7); } 100% { box-shadow: 0 0 0 14px rgba(255, 221, 0, 0); } }
+
+/* the tape across the headline waits for the city before it rips */
+html.gl:not(.gl-ready) .tape-rip .band, html.gl:not(.gl-ready) .tape-rip .flap { animation-play-state: paused; }
+
+@media (min-width: 901px) {
+  html.gl .pin { height: calc(100vh + 1000px); }
+}
+
+/* sections: dark and see-through, light type */
+html.gl .sec, html.gl .sec-demo { position: relative; background: transparent; color: var(--concrete); }
+html.gl .sec { padding: 150px 0; }
+html.gl .sec::before, html.gl .sec-demo::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 140px, #000 calc(100% - 140px), transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0, #000 140px, #000 calc(100% - 140px), transparent 100%);
+}
+html.gl .sec > .wrap, html.gl .sec-demo > .wrap { position: relative; }
+html.gl .sec .kicker { color: var(--yellow); }
+html.gl .sec .body, html.gl .notes { color: var(--on-dark); }
+html.gl .fine { color: var(--muted-dark); }
+html.gl .note svg { stroke: var(--yellow); }
+html.gl .on-light :focus-visible { outline-color: var(--yellow); }
+html.gl .step-num { color: var(--asphalt); }
+/* the yellow section floods the whole screen out of the bubble (the scene sets --wx, --wy, --wr) */
+html.gl .sec-wipe { background: transparent; overflow: visible; min-height: 100vh; display: flex; align-items: center; }
+html.gl .wipe-bg { position: fixed; clip-path: circle(var(--wr, 0px) at var(--wx, 50%) var(--wy, 50%)); }
+html.gl .wipe-inner { width: 100%; }
+
+html.gl #how::before, html.gl #pricing::before, html.gl .sec-demo::before {
+  background: linear-gradient(90deg, rgba(23, 25, 28, .9) 0%, rgba(23, 25, 28, .66) 36%, rgba(23, 25, 28, 0) 66%);
+}
+html.gl .sec-sorted::before {
+  background: linear-gradient(270deg, rgba(23, 25, 28, .9) 0%, rgba(23, 25, 28, .66) 36%, rgba(23, 25, 28, 0) 66%);
+}
+
+/* the phone: a slab with real thickness that turns as the steps change */
+html.gl .phone-col { perspective: 1300px; }
+html.gl .phone-rig {
+  transform-style: preserve-3d; will-change: transform;
+  transform: translateY(var(--fy, 0px)) rotateX(var(--rx, 8deg)) rotateY(var(--ry, -26deg));
+}
+html.gl .phone { position: relative; transform-style: preserve-3d; color: var(--asphalt); }
+html.gl .phone-edge { display: block; position: absolute; inset: 0; border-radius: 46px; background: #2B2E33; }
+html.gl .phone-edge:nth-child(1) { transform: translateZ(-3px); }
+html.gl .phone-edge:nth-child(2) { transform: translateZ(-6px); }
+html.gl .phone-edge:nth-child(3) { transform: translateZ(-9px); }
+html.gl .phone-edge:nth-child(4) { transform: translateZ(-12px); }
+html.gl .phone-edge:nth-child(5) { transform: translateZ(-15px); }
+html.gl .phone-edge:nth-child(6) {
+  transform: translateZ(-18px); background: #0C0D0F;
+  box-shadow: 0 0 90px 10px rgba(255, 221, 0, .28), 0 60px 90px -20px rgba(0, 0, 0, .8);
+}
+html.gl .phone-screen { transform: translateZ(1px); }
+html.gl .phone-glare {
+  display: block; position: absolute; inset: 12px; border-radius: 34px; pointer-events: none;
+  transform: translateZ(2px);
+  background: linear-gradient(118deg, rgba(255, 255, 255, .26) 0%, rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, 0) 72%, rgba(255, 255, 255, .1) 100%);
+}
+@keyframes phonering {
+  0%, 55%, 100% { transform: rotateZ(0); }
+  6% { transform: rotateZ(-2.6deg); } 12% { transform: rotateZ(2.6deg); } 18% { transform: rotateZ(-2.2deg); }
+  24% { transform: rotateZ(2.2deg); } 30% { transform: rotateZ(-1.4deg); } 36% { transform: rotateZ(1.4deg); } 42% { transform: rotateZ(0); }
+}
+@keyframes phonebuzz {
+  0%, 100% { transform: translateX(0) scale(1); }
+  15% { transform: translateX(-5px) scale(1.03); } 30% { transform: translateX(5px) scale(1.03); }
+  45% { transform: translateX(-4px) scale(1.02); } 60% { transform: translateX(4px) scale(1.01); } 80% { transform: translateX(-2px); }
+}
+@keyframes phoneglow {
+  0% { box-shadow: 0 0 150px 40px rgba(255, 221, 0, .75), 0 60px 90px -20px rgba(0, 0, 0, .8); }
+  100% { box-shadow: 0 0 90px 10px rgba(255, 221, 0, .28), 0 60px 90px -20px rgba(0, 0, 0, .8); }
+}
+html.gl[data-step="0"] .phone { animation: phonering 1.5s ease-in-out infinite; }
+html.gl .phone.buzz { animation: phonebuzz .5s ease-out; }
+html.gl .phone.buzz .phone-edge:nth-child(6) { animation: phoneglow .9s ease-out; }
+
+/* cards and plans: solid slabs that tip towards the pointer */
+html.gl .cards, html.gl .plans { perspective: 1500px; }
+html.gl .card, html.gl .plan {
+  position: relative; transform-style: preserve-3d; color: var(--asphalt);
+  box-shadow: 0 40px 70px -34px rgba(0, 0, 0, .85);
+}
+html.gl .card > *, html.gl .plan > * { transform: translateZ(22px); }
+html.gl .card.rv.in, html.gl .plan.rv.in {
+  transform: rotateX(calc(var(--ty, 0) * -10deg)) rotateY(calc(var(--tx, 0) * 12deg));
+}
+html.gl.js .card.rv:not(.in), html.gl.js .plan.rv:not(.in) { transform: rotateX(-38deg) translateY(80px) translateZ(-120px); }
+html.gl .card.tilting, html.gl .plan.tilting { transition: transform .14s ease-out; transition-delay: 0s; }
+html.gl .card::after, html.gl .plan::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  opacity: 0; transition: opacity .3s ease; transform: translateZ(1px);
+  background: radial-gradient(380px circle at var(--gx, 50%) var(--gy, 50%), rgba(255, 255, 255, .38), rgba(255, 255, 255, 0) 62%);
+}
+html.gl .tilting::after { opacity: 1; }
+html.gl .card-dark { background: var(--yellow); color: var(--asphalt); }
+html.gl .card-dark .tag, html.gl .card-dark .card-body { color: var(--asphalt); }
+html.gl .plan-dark { background: var(--asphalt); color: var(--concrete); box-shadow: 0 0 0 1.5px var(--yellow), 0 40px 70px -34px rgba(0, 0, 0, .85); }
+html.gl .plan-dark::after { background: radial-gradient(380px circle at var(--gx, 50%) var(--gy, 50%), rgba(255, 221, 0, .2), rgba(255, 221, 0, 0) 62%); }
+
+@media (min-width: 1000px) {
+  /* leave half the screen to the city, alternating sides */
+  html.gl .sec-sorted .stack { align-items: flex-end; }
+  html.gl .sec-sorted .sec-head, html.gl .sec-sorted .cards, html.gl .sec-sorted .notes { width: min(100%, 760px, 58vw); }
+  html.gl .sec-sorted .cards { grid-template-columns: 1fr 1fr; }
+  html.gl .sec-sorted .notes { flex-direction: column; gap: 12px; }
+  html.gl .sec-sorted .note { flex: none; }
+  html.gl .plans { max-width: max(700px, min(900px, 64vw)); }
+  html.gl .demo-title { font-size: clamp(36px, 5.4vw, 80px); }
+  html.gl .team { flex-direction: column; gap: 24px; max-width: 620px; }
+  html.gl .team-title { flex: none; max-width: none; }
+  html.gl .team-copy { flex: none; }
+  html.gl .sec-sorted, html.gl #pricing { padding: 22vh 0; }
+}
+
+/* phones: the scene sits above each block of copy rather than beside it */
+@media (max-width: 900px) {
+  html.gl .hero { min-height: 100vh; min-height: 100svh; }
+  html.gl .hero-body { padding-top: 32vh; padding-top: 32svh; align-items: flex-end; }
+  html.gl .hero::before {
+    background: linear-gradient(180deg, rgba(23, 25, 28, .35) 0%, rgba(23, 25, 28, 0) 12%, rgba(23, 25, 28, 0) 30%, rgba(23, 25, 28, .88) 50%, rgba(23, 25, 28, .94) 100%);
+  }
+  html.gl .hero-title { font-size: clamp(52px, 15vw, 96px); }
+  html.gl .sec, html.gl .sec-demo { padding-top: 44vh; padding-top: 44svh; }
+  html.gl .sec::before, html.gl .sec-demo::before,
+  html.gl #how::before, html.gl #pricing::before, html.gl .sec-sorted::before {
+    -webkit-mask-image: none; mask-image: none;
+    background: linear-gradient(180deg, rgba(23, 25, 28, 0) 0, rgba(23, 25, 28, 0) 26vh, rgba(23, 25, 28, .9) 44vh, rgba(23, 25, 28, .9) calc(100% - 60px), rgba(23, 25, 28, 0) 100%);
+  }
+  html.gl .demo-inner { padding-top: 0; }
+  html.gl .phone-col { padding: 30px 0 10px; }
+}

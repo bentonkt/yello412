@@ -10,6 +10,9 @@
 //
 // The inline script in <head> adds html.js unless the visitor prefers reduced
 // motion. Without it, every effect stays in its finished state.
+//
+// On the home page this file also loads the 3D scene (src/scene/, built into
+// scene.js) when the browser can draw it. See the end of the file.
 
 (function () {
   var root = document.documentElement;
@@ -80,4 +83,30 @@
   window.addEventListener('resize', queue);
   window.addEventListener('load', queue);
   tick();
+
+  // The 3D scene. The inline script in the home page's <head> adds html.gl when
+  // the browser can draw it; the scene adds html.gl-ready once it's on screen.
+  // If it doesn't load, fails or never gets going, drop back to the flat page.
+  var scene = document.querySelector('meta[name="yello-scene"]');
+  if (scene && root.classList.contains('gl')) {
+    var state = (window.yello = window.yello || {});
+    var flat = function () {
+      if (state.ready) return;
+      state.failed = true;
+      root.classList.remove('gl', 'gl-ready');
+      queue();
+    };
+    var s = document.createElement('script');
+    s.type = 'module';
+    s.src = scene.content;
+    s.onerror = flat;
+    document.head.appendChild(s);
+    // Give it 12 seconds of the tab actually being looked at. (A tab opened in
+    // the background draws nothing, so that time doesn't count.)
+    var waited = 0;
+    var watch = setInterval(function () {
+      if (state.ready || state.failed) { clearInterval(watch); return; }
+      if (!document.hidden && (waited += 500) >= 12000) { clearInterval(watch); flat(); }
+    }, 500);
+  }
 })();

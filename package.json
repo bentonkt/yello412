@@ -13,6 +13,8 @@
     "test": "node --test worker/worker.test.mjs"
   },
   "devDependencies": {
+    "esbuild": "^0.28.2",
+    "three": "^0.187.0",
     "wrangler": "^4.40.0"
   },
   "engines": {
