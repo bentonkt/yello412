@@ -1,6 +1,8 @@
 // Yello 412 Worker: serves the site (static assets) and the demo line's backend.
 //
 // Routes (everything else is the static site):
+//   POST /api/retell/inbound    Retell, before it answers the demo number: rejects a caller who
+//                               already had callsPerDay demo calls today (Pittsburgh time).
 //   POST /api/demo/save-job     Retell tool call, mid-call. Acknowledges fast; the job is read back
 //                               from the transcript when the call ends.
 //   POST /api/retell/webhook    Retell call_ended → text the caller the owner-style text,
@@ -17,7 +19,8 @@
 //   ALERT_FROM                             optional sender, default demo@<site host>
 // Bindings (wrangler.toml):
 //   ALERT_EMAIL (send_email)               sends the alerts; until it's set up, alerts go to the Worker log
-//   DEMO_KV (optional KV)                  dedupes Retell retries and caps texts to 3 per number per day
+//   DEMO_KV (optional KV)                  dedupes Retell retries, caps texts to 3 per number per day
+//                                          and demo calls to callsPerDay; without it, nothing is capped
 
 import site from '../site.config.json' with { type: 'json' };
 import agentCfg from '../agent/demo-agent.json' with { type: 'json' };
@@ -26,6 +29,7 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     try {
+      if (request.method === 'POST' && url.pathname === '/api/retell/inbound') return await retellInbound(request, env);
       if (request.method === 'POST' && url.pathname === '/api/demo/save-job') return await saveJob(request, env);
       if (request.method === 'POST' && url.pathname === '/api/retell/webhook') return await retellWebhook(request, env, ctx);
       if (request.method === 'POST' && url.pathname === '/api/twilio/sms') return await twilioSms(request, env, ctx);
@@ -39,6 +43,56 @@ export default {
 };
 
 // ---------- Retell ----------
+
+// Retell asks this before it answers the demo number. Anything unexpected lets the call
+// through: an error here should never block a real demo, and a 4xx/5xx would make Retell
+// retry (and the caller wait) before it connects anyway.
+async function retellInbound(request, env) {
+  const allow = () => Response.json({ call_inbound: {} });
+  try {
+    const raw = await request.text();
+    if (!(await verifyRetell(raw, request.headers.get('x-retell-signature'), env.RETELL_API_KEY))) {
+      console.warn('inbound: bad signature; letting the call through uncounted');
+      return allow();
+    }
+    const { event, call_inbound: inbound } = JSON.parse(raw);
+    if (event !== 'call_inbound' || !inbound) return allow();
+    if ((await checkDailyCalls(env, inbound)) !== 'over') return allow();
+    console.log(`inbound: rejected ${inbound.from_number}, over ${agentCfg.callsPerDay} demo calls today`);
+    return Response.json({ call_inbound: { reject: true } });
+  } catch (err) {
+    console.error('inbound', err);
+    return allow();
+  }
+}
+
+// Ryan and Benton test the line all day; they're never capped.
+const team = new Set([site.contactCell, site.partnerCell].map((n) => toE164(n)).filter(Boolean));
+
+// 'allowed' (and counted), 'over', 'team', or 'uncapped' (no KV, no limit, or no caller ID).
+export async function checkDailyCalls(env, inbound, now = new Date()) {
+  const limit = Number(agentCfg.callsPerDay) || 0;
+  const caller = toE164(inbound.from_number);
+  if (!env.DEMO_KV || !limit || !caller) return 'uncapped';
+  if (team.has(caller)) return 'team';
+
+  // Retell retries this webhook with the same call_id; decide each call once.
+  const seenKey = inbound.call_id ? `in:${inbound.call_id}` : '';
+  const seen = seenKey && (await env.DEMO_KV.get(seenKey));
+  if (seen) return seen;
+
+  const key = `calls:${caller}:${pittsburghDate(now)}`;
+  const n = Number(await env.DEMO_KV.get(key)) || 0;
+  const verdict = n >= limit ? 'over' : 'allowed';
+  if (verdict === 'allowed') await env.DEMO_KV.put(key, String(n + 1), { expirationTtl: 2 * 86400 });
+  if (seenKey) await env.DEMO_KV.put(seenKey, verdict, { expirationTtl: 3600 });
+  return verdict;
+}
+
+// YYYY-MM-DD in Pittsburgh, so the count resets at local midnight.
+export function pittsburghDate(d = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(d);
+}
 
 async function saveJob(request, env) {
   const raw = await request.text();

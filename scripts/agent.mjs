@@ -132,6 +132,8 @@ const agentBody = (llmId, llmVersion) => ({
   responsiveness: cfg.responsiveness,
   enable_backchannel: cfg.enableBackchannel,
   data_storage_retention_days: cfg.dataRetentionDays,
+  // Retell has no off switch for post-call analysis: extract nothing, on the cheapest model.
+  ...(cfg.postCallAnalysis === false ? { post_call_analysis_data: [], post_call_analysis_model: 'gpt-4.1-mini' } : {}),
 });
 
 if (flag('--print')) {
@@ -226,6 +228,8 @@ const demo = e164(site.demoNumber);
 if (demo) {
   await retell('PATCH', `/update-phone-number/${encodeURIComponent(demo)}`, {
     nickname: 'Yello 412 demo line',
+    // The Worker turns away callers over callsPerDay before Retell answers.
+    inbound_webhook_url: `${baseUrl}/api/retell/inbound`,
     inbound_agents: [{ agent_id: agent.agent_id, agent_version: liveVersion, weight: 1 }],
   });
   console.log(`Demo number ${demo} now answers with this agent.`);

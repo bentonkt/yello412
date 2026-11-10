@@ -29,8 +29,8 @@ TWILIO_FROM = ""
 # [[send_email]]
 # name = "ALERT_EMAIL"
 
-# Optional: dedupes Retell retries and caps demo texts at 3 per number per day.
-# Create it with `npx wrangler kv namespace create DEMO_KV`, then uncomment with the id it prints.
-# [[kv_namespaces]]
-# binding = "DEMO_KV"
-# id = ""
+# Dedupes Retell retries, caps demo texts at 3 per number per day, and caps demo calls at
+# callsPerDay (agent/demo-agent.json). Without it nothing is capped.
+[[kv_namespaces]]
+binding = "DEMO_KV"
+id = "a9296d4158074821bc5130d402e63beb"

@@ -1,9 +1,9 @@
 {
-  "_comment": "Settings for the Retell demo agent. `npm run agent` pushes this file plus demo-prompt.md to Retell. Prices, trial and contact numbers come from site.config.json. spokenName is how the voice says the business name: wherever the opening line or the prompt says the name from site.config.json, the agent gets spokenName instead (a voice reads the digits 412 as four hundred twelve). The emergency ring uses it too. sttMode and boostedKeywords tune Retell's speech-to-text: 'accurate' trades a little speed for fewer misheard words, and the keywords bias it toward trade words and Pittsburgh places it would otherwise mishear (it once heard 'furnace broke' as 'Five Plumbing Road').The Worker also reads textTheCaller and ringOnEmergency, so after changing either run `npm run deploy` and then `npm run agent`.",
+  "_comment": "Settings for the Retell demo agent. `npm run agent` pushes this file plus demo-prompt.md to Retell. Prices, trial and contact numbers come from site.config.json. spokenName is how the voice says the business name: wherever the opening line or the prompt says the name from site.config.json, the agent gets spokenName instead (a voice reads the digits 412 as four hundred twelve). The emergency ring uses it too. sttMode and boostedKeywords tune Retell's speech-to-text: 'accurate' trades a little speed for fewer misheard words, and the keywords bias it toward trade words and Pittsburgh places it would otherwise mishear (it once heard 'furnace broke' as 'Five Plumbing Road').callsPerDay caps demo calls per caller per day (Pittsburgh time; Ryan's and Benton's cells are exempt; 0 turns it off). postCallAnalysis false strips Retell's post-call extraction to nothing on the cheapest model, since Retell has no off switch and the Worker never reads it. The Worker also reads textTheCaller, ringOnEmergency and callsPerDay, so after changing any of them run `npm run deploy` and then `npm run agent`.",
 
   "agentName": "Yello 412 demo",
   "llmModel": "gpt-6.1-terra",
-  "voiceId": "retell-Tamsin",
+  "voiceId": "cartesia-Bing",
   "spokenName": "Yello four one two",
 
   "beginMessage": "Hey, this is the Yello 412 demo line. Heads up, this call is recorded. Tell me your business name and I'll answer as your line, or just say skip.",
@@ -25,6 +25,9 @@
     "Brookline", "Bethel Park", "Penn Hills", "Monroeville", "Cranberry", "North Side", "South Side",
     "skip", "demo"
   ],
+
+  "callsPerDay": 2,
+  "postCallAnalysis": false,
 
   "textTheCaller": false,
   "ringOnEmergency": true

@@ -2,7 +2,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
-import worker, { verifyRetell, verifyTwilio, lastSavedJob, demoText, clean, handleEndedCall, emailRuntime, alertMime } from './index.js';
+import worker, { verifyRetell, verifyTwilio, lastSavedJob, demoText, clean, handleEndedCall, emailRuntime, alertMime, checkDailyCalls, pittsburghDate } from './index.js';
+import site from '../site.config.json' with { type: 'json' };
 
 import agentCfg from '../agent/demo-agent.json' with { type: 'json' };
 
@@ -171,6 +172,56 @@ test('KV dedupes a retried webhook', async () => {
   await handleEndedCall(call(), env);
   const again = await handleEndedCall(call(), env);
   assert.equal(again.skipped, 'duplicate');
+});
+
+const memKV = () => { const store = new Map(); return { store, get: async (k) => store.get(k) ?? null, put: async (k, v) => { store.set(k, v); } }; };
+const inbound = (from, id) => ({ event: 'call_inbound', call_inbound: { call_id: id, from_number: from, to_number: '+14122269994' } });
+async function ring(env, body, signed = true) {
+  const raw = JSON.stringify(body);
+  const headers = signed ? { 'x-retell-signature': sign(raw) } : {};
+  const res = await worker.fetch(new Request('https://x/api/retell/inbound', { method: 'POST', body: raw, headers }), env, ctx());
+  assert.equal(res.status, 200);
+  return (await res.json()).call_inbound;
+}
+
+test('inbound: each number gets callsPerDay calls a day, then is rejected', async () => {
+  agentCfg.callsPerDay = 2;
+  const env = { RETELL_API_KEY: KEY, DEMO_KV: memKV() };
+  assert.equal((await ring(env, inbound('+14125550142', 'c1'))).reject, undefined);
+  assert.equal((await ring(env, inbound('+14125550142', 'c2'))).reject, undefined);
+  assert.equal((await ring(env, inbound('+14125550142', 'c3'))).reject, true);
+  // a different caller still gets through
+  assert.equal((await ring(env, inbound('+14125559999', 'c4'))).reject, undefined);
+});
+
+test('inbound: retries are counted once, the team is never capped, the next day resets', async () => {
+  agentCfg.callsPerDay = 2;
+  const env = { DEMO_KV: memKV() };
+  const c = (id) => ({ call_id: id, from_number: '+14125550142' });
+  assert.equal(await checkDailyCalls(env, c('a')), 'allowed');
+  assert.equal(await checkDailyCalls(env, c('a')), 'allowed'); // Retell retry, same call
+  assert.equal(await checkDailyCalls(env, c('b')), 'allowed');
+  assert.equal(await checkDailyCalls(env, c('c')), 'over');
+  assert.equal(await checkDailyCalls(env, c('c')), 'over');
+  for (let i = 0; i < 5; i++) assert.equal(await checkDailyCalls(env, { call_id: `t${i}`, from_number: site.partnerCell }), 'team');
+  const tomorrow = new Date(Date.now() + 86400000);
+  assert.equal(await checkDailyCalls(env, c('d'), tomorrow), 'allowed');
+});
+
+test('inbound: fails open without KV, with a bad signature, or with no caller ID', async () => {
+  agentCfg.callsPerDay = 2;
+  const env = { RETELL_API_KEY: KEY };
+  for (const id of ['x1', 'x2', 'x3']) assert.equal((await ring(env, inbound('+14125550142', id))).reject, undefined);
+  const kvEnv = { RETELL_API_KEY: KEY, DEMO_KV: memKV() };
+  for (const id of ['y1', 'y2', 'y3']) assert.equal((await ring(kvEnv, inbound('+14125550142', id), false)).reject, undefined);
+  assert.equal(kvEnv.DEMO_KV.store.size, 0); // unsigned requests aren't counted
+  assert.equal(await checkDailyCalls(kvEnv, { call_id: 'z', from_number: 'anonymous' }), 'uncapped');
+});
+
+test('Pittsburgh date rolls over at local midnight, not UTC', () => {
+  // 03:30 UTC on Nov 10 is still Nov 9 in Pittsburgh
+  assert.equal(pittsburghDate(new Date('2026-11-10T03:30:00Z')), '2026-11-09');
+  assert.equal(pittsburghDate(new Date('2026-11-10T05:30:00Z')), '2026-11-10');
 });
 
 test('Twilio reply YES emails a LEAD alert and answers; STOP gets no reply', async () => {
