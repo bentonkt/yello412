@@ -4,16 +4,20 @@
 //   POST /api/demo/save-job     Retell tool call, mid-call. Acknowledges fast; the job is read back
 //                               from the transcript when the call ends.
 //   POST /api/retell/webhook    Retell call_ended → text the caller the owner-style text,
-//                               ring them if it was an emergency, alert Ryan on Telegram.
-//   POST /api/twilio/sms        Replies to the demo text (YES = lead) → Telegram.
+//                               ring them if it was an emergency, email the team an alert.
+//   POST /api/twilio/sms        Replies to the demo text (YES = lead) → alert email.
 //
 // Secrets (wrangler secret put …, or .dev.vars locally):
 //   RETELL_API_KEY                         verifies Retell requests (use the key with the webhook badge)
 //   TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN  texts and the emergency ring
-//   TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID   alerts to Ryan
+//   ALERT_TO                               where alert emails go, comma-separated; each must be a
+//                                          verified destination address in Cloudflare Email Routing
 // Vars (wrangler.toml):
 //   TWILIO_FROM                            the Twilio number texts and rings come from
-// Optional KV binding DEMO_KV: dedupes Retell retries and caps texts to 3 per number per day.
+//   ALERT_FROM                             optional sender, default demo@<site host>
+// Bindings (wrangler.toml):
+//   ALERT_EMAIL (send_email)               sends the alerts; until it's set up, alerts go to the Worker log
+//   DEMO_KV (optional KV)                  dedupes Retell retries and caps texts to 3 per number per day
 
 import site from '../site.config.json' with { type: 'json' };
 import agentCfg from '../agent/demo-agent.json' with { type: 'json' };
@@ -85,7 +89,7 @@ export async function handleEndedCall(call, env) {
     outcome.ring = r.ok ? 'placed' : `failed: ${r.error}`;
   }
 
-  await telegram(env, alertText(call, job, caller, seconds, outcome));
+  await alert(env, alertText(call, job, caller, seconds, outcome));
   return { job, outcome };
 }
 
@@ -168,10 +172,10 @@ async function twilioSms(request, env, ctx) {
     return twiml('');
   }
   if (word === 'YES' || word === 'Y') {
-    ctx.waitUntil(telegram(env, `LEAD: ${pretty(from)} replied YES to the demo text. Call them.`));
+    ctx.waitUntil(alert(env, `LEAD: ${pretty(from)} replied YES to the demo text. Call them.`));
     return twiml(`Nice. ${site.contactName} will text you shortly to set up a time to come by.`);
   }
-  ctx.waitUntil(telegram(env, `Text from ${pretty(from)} to the demo number:\n${body}`));
+  ctx.waitUntil(alert(env, `Text from ${pretty(from)} to the demo number:\n${body}`));
   return twiml('');
 }
 
@@ -204,14 +208,49 @@ async function twilio(env, resource, form) {
   return { ok: false, error: msg };
 }
 
-async function telegram(env, text) {
-  if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) return;
-  const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: env.TELEGRAM_CHAT_ID, text, disable_web_page_preview: true }),
-  });
-  if (!res.ok) console.error('telegram', res.status, await res.text());
+// Cloudflare's email class, loaded on first use. Tests swap `load` for a stand-in, since
+// `cloudflare:email` only exists inside the Workers runtime.
+export const emailRuntime = { load: async () => (await import('cloudflare:email')).EmailMessage };
+
+// Emails an alert to each ALERT_TO address. The first line of the text is the subject.
+// Not set up yet: the alert goes to the Worker log instead (npx wrangler tail).
+async function alert(env, text) {
+  const to = String(env.ALERT_TO || '').split(',').map((s) => s.trim()).filter(Boolean);
+  if (!env.ALERT_EMAIL || !to.length) {
+    console.log(`alert (email not set up):\n${text}`);
+    return;
+  }
+  const from = env.ALERT_FROM || `demo@${new URL(site.siteUrl).hostname}`;
+  const EmailMessage = await emailRuntime.load();
+  for (const addr of to) {
+    try {
+      await env.ALERT_EMAIL.send(new EmailMessage(from, addr, alertMime({ from, to: addr, subject: text.split('\n')[0], text })));
+    } catch (err) {
+      console.error('alert email', addr, err);
+    }
+  }
+}
+
+// A plain-text email. Subject and body are base64 so names with accents or dashes come through.
+export function alertMime({ from, to, subject, text, date = new Date(), id = crypto.randomUUID() }) {
+  return [
+    `From: ${site.businessName} demo <${from}>`,
+    `To: ${to}`,
+    `Subject: =?UTF-8?B?${base64(subject)}?=`,
+    `Date: ${date.toUTCString()}`,
+    `Message-ID: <${id}@${from.split('@')[1]}>`,
+    'MIME-Version: 1.0',
+    'Content-Type: text/plain; charset=utf-8',
+    'Content-Transfer-Encoding: base64',
+    '',
+    base64(text).replace(/.{76}/g, '$&\r\n'),
+  ].join('\r\n');
+}
+
+function base64(s) {
+  let bin = '';
+  for (const b of enc.encode(s)) bin += String.fromCharCode(b);
+  return btoa(bin);
 }
 
 async function underDailyCap(env, number) {

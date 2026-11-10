@@ -12,11 +12,11 @@ RETELL_API_KEY=
 PUBLIC_URL=
 
 # Twilio console › Account info. Leave empty until texting is approved;
-# the demo still works and alerts still go to Telegram.
+# the demo still works and alert emails still go out.
 TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=
 
-# Telegram: message @BotFather to create a bot (token), then message the bot
-# and open https://api.telegram.org/bot<TOKEN>/getUpdates to find your chat id.
-TELEGRAM_BOT_TOKEN=
-TELEGRAM_CHAT_ID=
+# Where alert emails go (each demo call, each YES reply), comma-separated.
+# Each address must be verified in Cloudflare › Email Routing › Destination addresses.
+# Also uncomment [[send_email]] in wrangler.toml. Live: npx wrangler secret put ALERT_TO
+ALERT_TO=

@@ -44,7 +44,7 @@ Then connect the domain. yello412.com is registered at Porkbun:
 
 - [ ] Set `demoNumber` once the demo line is live (see "The demo line" below).
 - [ ] `ryan@yello412.com` actually receives mail (step 4 above).
-- [ ] Read `src/privacy.html` and confirm it matches how the line really works: 30-day deletion of recordings and transcripts, call summaries kept while the business is a customer, weekly summary text, emergency call, and the vendor list (Retell, Twilio, Cloudflare). Twilio's texting registration asks for this page's URL. It's a plain-language draft, not legal advice.
+- [ ] Read `src/privacy.html` and confirm it matches how the line really works: 30-day deletion of recordings and transcripts, call summaries kept while the business is a customer, weekly summary text, emergency call, demo-line texts, and the vendor list (Retell, Twilio, Cloudflare). Twilio's texting registration asks for this page's URL. It's a plain-language draft, not legal advice.
 - [ ] Open the site on a phone and click every link.
 
 ## Files
@@ -84,8 +84,8 @@ Someone calls the demo number. The agent asks their business name and answers as
 
 1. they get a text with exactly what the owner would get (Twilio),
 2. if it was an emergency, their phone rings with the emergency call the owner gets,
-3. Ryan gets a Telegram alert with the business name, their number and the job,
-4. if they reply YES to the text, Ryan gets a "LEAD" alert.
+3. we get an alert email with the business name, their number and the job,
+4. if they reply YES to the text, we get a "LEAD" alert email.
 
 | File | What it is |
 |---|---|
@@ -99,7 +99,7 @@ Prices, the trial and Ryan's number in the agent's answers come from `site.confi
 
 ### Set it up (once)
 
-1. **Keys.** Copy `.dev.vars.example` to `.dev.vars` and fill in `RETELL_API_KEY` (Retell › API Keys, the key with the webhook badge). Twilio and Telegram can wait.
+1. **Keys.** Copy `.dev.vars.example` to `.dev.vars` and fill in `RETELL_API_KEY` (Retell › API Keys, the key with the webhook badge). Twilio and the alert emails can wait.
 2. **Demo number.** In Retell › Phone Numbers, buy a 412 number (or import a Twilio one). Put it in `site.config.json` as `demoNumber`.
 3. **Deploy the backend** so Retell has somewhere to send requests:
    ```bash
@@ -118,7 +118,12 @@ Prices, the trial and Ryan's number in the agent's answers come from `site.confi
    - `agent/demo-prompt.md`, or `voiceId` and the other voice settings in `agent/demo-agent.json`: `npm run agent`.
    - `textTheCaller` or `ringOnEmergency` in `agent/demo-agent.json`, or anything in `site.config.json`: `npm run deploy`, then `npm run agent`. The Worker reads these files when it's deployed, so it keeps the old values until you deploy again. For example, if you turn `textTheCaller` on and only run `npm run agent`, the agent promises a text that the Worker never sends.
 5. **Pick a voice:** `npm run agent -- --voices`, put the one you like in `agent/demo-agent.json` as `voiceId`, run `npm run agent` again.
-6. **Telegram alerts:** create a bot with @BotFather, message it once, get your chat id from `https://api.telegram.org/bot<TOKEN>/getUpdates`, then `npx wrangler secret put TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`.
+6. **Alert emails** (needs yello412.com on Cloudflare, see Deploy). In Cloudflare › Email Routing, turn routing on and add each inbox that should get alerts under Destination addresses, then click the link in the verification email. Uncomment the `[[send_email]]` block in `wrangler.toml`, then:
+   ```bash
+   npx wrangler secret put ALERT_TO
+   npm run deploy
+   ```
+   `ALERT_TO` is those inboxes, comma-separated. Alerts come from `demo@yello412.com`; change it with `ALERT_FROM` in `wrangler.toml`. Until this is set up, each alert is written to the Worker log instead (`npx wrangler tail` shows it live), and every call is also in Retell's call history.
 7. **Texts and the emergency ring (Twilio):** buy a Twilio number, put it in `wrangler.toml` as `TWILIO_FROM`, set `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN` as secrets, and in Twilio set that number's "A message comes in" webhook to `https://<your site>/api/twilio/sms`. Carriers block texts from business numbers until the number's texting registration (A2P 10DLC) is approved, and that registration asks for the privacy page URL. **Until it's approved, set `"textTheCaller": false` in `agent/demo-agent.json`, then run `npm run deploy` and `npm run agent`:** the agent then reads the text out loud at the end of the call instead of promising one. Once it's approved, set it back to `true` and run both again. The emergency ring is a voice call and works without the registration.
 8. **Optional:** `npx wrangler kv namespace create DEMO_KV` and uncomment the block in `wrangler.toml` to stop duplicate texts and cap demo texts at 3 per number per day.
 

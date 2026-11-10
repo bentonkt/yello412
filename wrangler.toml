@@ -19,6 +19,15 @@ run_worker_first = ["/api/*"]
 [vars]
 # The Twilio number the demo texts and emergency rings come from, e.g. "+14125550100".
 TWILIO_FROM = ""
+# Optional sender for alert emails; must be on a domain with Email Routing on. Default demo@yello412.com.
+# ALERT_FROM = "demo@yello412.com"
+
+# Alert emails to the team (each demo call, each YES reply). Needs yello412.com on Cloudflare
+# with Email Routing on, and each ALERT_TO address verified under Email Routing > Destination
+# addresses. Then uncomment this, set the ALERT_TO secret and deploy. Until then alerts only
+# go to the Worker log (`npx wrangler tail`).
+# [[send_email]]
+# name = "ALERT_EMAIL"
 
 # Optional: dedupes Retell retries and caps demo texts at 3 per number per day.
 # Create it with `npx wrangler kv namespace create DEMO_KV`, then uncomment with the id it prints.
