@@ -1,0 +1,19 @@
+{
+  "name": "yello412-site",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Marketing site for Yello 412, an answering service for Pittsburgh small businesses.",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "preview": "node scripts/build.mjs && node scripts/preview.mjs",
+    "dev": "node scripts/build.mjs && wrangler dev",
+    "deploy": "node scripts/build.mjs --prod && wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.40.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
