@@ -126,6 +126,8 @@ const agentBody = (llmId, llmVersion) => ({
   ...(cfg.boostedKeywords?.length ? { boosted_keywords: cfg.boostedKeywords } : {}),
   webhook_url: `${baseUrl}/api/retell/webhook`,
   webhook_events: ['call_ended'],
+  // Pause after pickup before the opening line (Retell allows 0 to 5 seconds).
+  begin_message_delay_ms: Math.min(5000, Math.max(0, Math.round((cfg.beginDelaySeconds || 0) * 1000))),
   max_call_duration_ms: Math.round(cfg.maxCallMinutes * 60_000),
   end_call_after_silence_ms: Math.max(10_000, Math.round(cfg.endAfterSilenceSeconds * 1000)),
   interruption_sensitivity: cfg.interruptionSensitivity,

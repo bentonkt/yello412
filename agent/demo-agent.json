@@ -8,6 +8,7 @@
 
   "beginMessage": "Hey, this is the Yello 412 demo line. Heads up, this call is recorded. Tell me your business name and I'll answer as your line, or say skip and I'll play a sample plumbing company.",
 
+  "beginDelaySeconds": 3,
   "maxCallMinutes": 3,
   "endAfterSilenceSeconds": 10,
   "interruptionSensitivity": 0.8,
