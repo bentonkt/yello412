@@ -35,17 +35,22 @@ npx wrangler login   # once
 npm run deploy       # builds and publishes the Worker "yello412-site"
 ```
 
-Then connect the domain. yello412.com is registered at Porkbun:
+Then connect the domain. yello412.com is registered at Porkbun, and its email runs on Google Workspace (MX `smtp.google.com`). Moving the DNS has to bring the Google records along, or every @yello412.com inbox stops getting mail.
 
-1. In Cloudflare, add the site yello412.com (free plan). Cloudflare gives you two nameservers.
-2. In Porkbun › Domain › Authoritative Nameservers, replace Porkbun's with Cloudflare's. Takes minutes to a few hours.
-3. In Cloudflare › Workers & Pages › yello412-site › Settings › Domains & Routes, add `yello412.com` and `www.yello412.com`.
-4. Set up Cloudflare › Email Routing so `ryan@yello412.com` forwards to Ryan's inbox. The site already shows that address.
+1. In Cloudflare, add the site yello412.com (free plan). Cloudflare copies the existing DNS records and gives you two nameservers. Fix the copied list before going on:
+   - **Keep** Google's records: MX `@` → `smtp.google.com` (priority 1), TXT `@` → `v=spf1 include:_spf.google.com ~all`, and TXT `@` → `google-site-verification=…`.
+   - **Delete** Porkbun's parking records: the A records on `@` (`207.207.210.x`), CNAME `www` → `uixie.porkbun.com`, and the wildcard CNAME `*` → `uixie.porkbun.com`. They point at Porkbun's link page and stop the Worker from taking the domain.
+2. In Porkbun, turn DNSSEC off if it's on, then under Domain › Authoritative Nameservers replace Porkbun's with Cloudflare's. Wait until Cloudflare shows the site as Active (minutes to a few hours).
+3. Uncomment the two `[[routes]]` blocks in `wrangler.toml` and run `npm run deploy`. That puts `yello412.com` and `www.yello412.com` on the Worker; Cloudflare makes their DNS records and certificates, so don't add A or CNAME records yourself. (The same by hand: Workers & Pages › yello412-site › Settings › Domains & Routes.)
+4. Optional: Rules › Redirect Rules › the "Redirect from WWW to root" template, so `www` sends people to yello412.com instead of serving a second copy.
+5. Point the demo line at the domain: empty `PUBLIC_URL` in `.dev.vars` and run `npm run agent` (see "The demo line").
+
+**Email stays on Google Workspace.** Make `ryan@yello412.com` a Workspace user or an alias in Google Admin. Don't turn on Cloudflare Email Routing for yello412.com: it swaps Google's MX record for Cloudflare's and cuts Workspace off. The Worker's alert emails use Cloudflare Email Sending instead, which leaves the MX alone (see "The demo line", step 6). To keep mail out of spam folders, also turn on DKIM in Google Admin › Apps › Google Workspace › Gmail › Authenticate email and add the `google._domainkey` TXT record it gives you in Cloudflare.
 
 ## Before launch
 
 - [ ] Set `demoNumber` once the demo line is live (see "The demo line" below).
-- [ ] `ryan@yello412.com` actually receives mail (step 4 above).
+- [ ] `ryan@yello412.com` actually receives mail (a Workspace user or alias, see Deploy).
 - [ ] Read `src/privacy.html` and confirm it matches how the line really works: 30-day deletion of recordings and transcripts, call summaries kept while the business is a customer, weekly summary text, emergency call, demo-line texts, and the vendor list (Retell, Twilio, Cloudflare). Twilio's texting registration asks for this page's URL. It's a plain-language draft, not legal advice.
 - [ ] Open the site on a phone and click every link.
 
@@ -161,12 +166,17 @@ Prices, the trial and Ryan's number in the agent's answers come from `site.confi
    - `agent/demo-prompt.md`, or `voiceId` and the other voice settings in `agent/demo-agent.json`: `npm run agent`.
    - `textTheCaller` or `ringOnEmergency` in `agent/demo-agent.json`, or anything in `site.config.json`: `npm run deploy`, then `npm run agent`. The Worker reads these files when it's deployed, so it keeps the old values until you deploy again. For example, if you turn `textTheCaller` on and only run `npm run agent`, the agent promises a text that the Worker never sends.
 5. **Pick a voice:** `npm run agent -- --voices`, put the one you like in `agent/demo-agent.json` as `voiceId`, run `npm run agent` again.
-6. **Alert emails** (needs yello412.com on Cloudflare, see Deploy). In Cloudflare › Email Routing, turn routing on and add each inbox that should get alerts under Destination addresses, then click the link in the verification email. Uncomment the `[[send_email]]` block in `wrangler.toml`, then:
+6. **Alert emails** (needs yello412.com on Cloudflare DNS, see Deploy). Turn on Cloudflare Email Sending for the domain:
+   ```bash
+   npx wrangler email sending enable yello412.com
+   npx wrangler email sending dns get yello412.com   # check its records are in
+   ```
+   It adds its records under `cf-bounce.yello412.com` plus a `_dmarc` record, and leaves Google's MX alone. Don't use Email Routing for this: on yello412.com it would take over the MX from Google Workspace. Uncomment the `[[send_email]]` block in `wrangler.toml`, then:
    ```bash
    npx wrangler secret put ALERT_TO
    npm run deploy
    ```
-   `ALERT_TO` is those inboxes, comma-separated. Alerts come from `demo@yello412.com`; change it with `ALERT_FROM` in `wrangler.toml`. Until this is set up, each alert is written to the Worker log instead (`npx wrangler tail` shows it live), and every call is also in Retell's call history.
+   `ALERT_TO` is the inboxes that get alerts, comma-separated. Alerts come from `demo@yello412.com`; change it with `ALERT_FROM` in `wrangler.toml` (it has to stay on yello412.com). Until this is set up, each alert is written to the Worker log instead (`npx wrangler tail` shows it live), and every call is also in Retell's call history.
 7. **Texts and the emergency ring (Twilio):** buy a Twilio number, put it in `wrangler.toml` as `TWILIO_FROM`, set `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN` as secrets, and in Twilio set that number's "A message comes in" webhook to `https://<your site>/api/twilio/sms`. Carriers block texts from business numbers until the number's texting registration (A2P 10DLC) is approved, and that registration asks for the privacy page URL. **Until it's approved, set `"textTheCaller": false` in `agent/demo-agent.json`, then run `npm run deploy` and `npm run agent`:** the agent then reads the text out loud at the end of the call instead of promising one. Once it's approved, set it back to `true` and run both again. The emergency ring is a voice call and works without the registration.
 8. **Optional:** `npx wrangler kv namespace create DEMO_KV` and uncomment the block in `wrangler.toml` to stop duplicate texts and cap demo texts at 3 per number per day.
 

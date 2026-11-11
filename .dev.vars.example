@@ -17,6 +17,6 @@ TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=
 
 # Where alert emails go (each demo call, each YES reply), comma-separated.
-# Each address must be verified in Cloudflare › Email Routing › Destination addresses.
-# Also uncomment [[send_email]] in wrangler.toml. Live: npx wrangler secret put ALERT_TO
+# Needs Cloudflare Email Sending on yello412.com and [[send_email]] uncommented in
+# wrangler.toml (README › The demo line, step 6). Live: npx wrangler secret put ALERT_TO
 ALERT_TO=

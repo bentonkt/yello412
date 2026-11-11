@@ -12,11 +12,11 @@
 // Secrets (wrangler secret put …, or .dev.vars locally):
 //   RETELL_API_KEY                         verifies Retell requests (use the key with the webhook badge)
 //   TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN  texts and the emergency ring
-//   ALERT_TO                               where alert emails go, comma-separated; each must be a
-//                                          verified destination address in Cloudflare Email Routing
+//   ALERT_TO                               where alert emails go, comma-separated
 // Vars (wrangler.toml):
 //   TWILIO_FROM                            the Twilio number texts and rings come from
-//   ALERT_FROM                             optional sender, default demo@<site host>
+//   ALERT_FROM                             optional sender, default demo@<site host>; must be on a
+//                                          domain with Cloudflare Email Sending on
 // Bindings (wrangler.toml):
 //   ALERT_EMAIL (send_email)               sends the alerts; until it's set up, alerts go to the Worker log
 //   DEMO_KV (optional KV)                  dedupes Retell retries, caps texts to 3 per number per day
