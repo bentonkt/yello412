@@ -711,9 +711,9 @@ html.gl .phone-glare {
   100% { box-shadow: 0 0 90px 10px rgba(255, 221, 0, .28), 0 60px 90px -20px rgba(0, 0, 0, .8); }
 }
 html.gl[data-step="0"] .phone { animation: phonering 1.5s ease-in-out infinite; }
-/* The text arrives with the beam from the bubble: the phone waits with the sender
-   showing (.wait), then the message springs in and the phone buzzes once (.got-text).
-   Later beams only make it glow (.glow). The scene adds and removes these. */
+/* When the text screen comes up, the message springs in at once (.wait is set and
+   cleared in one go to restart it) and the phone buzzes (.got-text). Beams from the
+   bubble make it glow (.glow). The scene adds and removes these. */
 html.gl .phone.got-text { animation: phonebuzz .5s ease-out; }
 html.gl .phone.glow .phone-edge:nth-child(6) { animation: phoneglow .9s ease-out; }
 html.gl-ready .phone .sms { transform-origin: 0 100%; transition: opacity .16s ease-out, transform .38s cubic-bezier(.2, 1.5, .35, 1); }

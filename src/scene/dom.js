@@ -46,30 +46,30 @@ export function initDom(root) {
   const pose = { ry: -26, rx: 8, y: 0 };
   const POSES = [{ ry: -30, rx: 10 }, { ry: -19, rx: 6 }, { ry: -9, rx: 4 }];
   const rect = { x: 0, y: 0, on: false };
-  let showing = false, got = false, since = 0, clock = 0;
+  let showing = false;
+
+  // The text screen just came up: the message pops in and the phone buzzes at once.
+  function popText() {
+    phone.classList.add('wait');
+    void phone.offsetWidth;
+    phone.classList.remove('wait');
+    replay(phone, 'got-text');
+  }
 
   return {
     phoneRect: rect,
 
-    // The beam has landed. The first time, the text pops in and the phone buzzes;
-    // after that the phone only glows, so it doesn't nag.
+    // A beam from the bubble has landed on the phone: it glows.
     textArrives() {
-      if (!phone) return;
-      if (!got) {
-        got = true;
-        phone.classList.remove('wait');
-        replay(phone, 'got-text');
-      }
-      replay(phone, 'glow');
+      if (phone) replay(phone, 'glow');
     },
 
     update(dt, time, pointer, vh) {
-      clock = time;
       rect.on = false;
       if (!rig || !how || !phone) return;
       const hr = how.getBoundingClientRect();
       if (hr.bottom < -100 || hr.top > vh + 100) {
-        if (showing) { showing = false; got = false; phone.classList.remove('wait'); }
+        showing = false;
         return;
       }
       const stepped = root.hasAttribute('data-step');        // side by side: the steps drive the phone
@@ -88,15 +88,9 @@ export function initDom(root) {
       rect.y = pr.top + pr.height * 0.12;
       // Is the text screen up and on view? Stacked, the phone only ever shows the text.
       const now = stepped ? step === 2 && pr.bottom > 0 && pr.top < vh : pr.top < vh * 0.62 && pr.bottom > vh * 0.2;
-      if (now && !showing) { showing = true; got = false; since = time; phone.classList.add('wait'); }
-      if (!now && showing) { showing = false; got = false; phone.classList.remove('wait'); }
-      // Never leave the message hidden if the beam doesn't come.
-      if (showing && !got && time - since > 2.6) { got = true; phone.classList.remove('wait'); }
+      if (now && !showing) popText();
+      showing = now;
       rect.on = showing;
     },
-
-    // Seconds since the text screen came up (so the first beam can be timed to it).
-    waited() { return showing ? clock - since : 0; },
-    hasText() { return got; },
   };
 }

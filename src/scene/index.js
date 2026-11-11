@@ -405,12 +405,13 @@ async function start() {
     bubble.update(dt, time, camera, { active, pointer });
     world.lightMat.uniforms.uPx.value = (height * ratio) / (2 * Math.tan((camera.fov * Math.PI) / 360));
 
-    // The text arrives on the phone: a beam from the bubble, and the message pops in as it lands.
+    // The text pops onto the phone as soon as it's on view, and a beam from the bubble
+    // goes out to it at the same time, then every few seconds while it stays in view.
     dom.update(dt, time, pointer, vh);
-    if (dom.phoneRect.on && time > nextDelivery && (dom.hasText() || dom.waited() > 0.45)) {
+    if (dom.phoneRect.on && time > nextDelivery) {
       calls.deliver(time, followPhone, dom.textArrives);
       bubble.bump(0.6);
-      nextDelivery = time + (dom.hasText() ? 5 : 2.2);
+      nextDelivery = time + 5;
     }
     // ...and the page ends on a ringing number.
     if (demoNum && demoHead && active && time > nextNum && demoHead.classList.contains('in')) {
