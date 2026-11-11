@@ -53,7 +53,7 @@ function spoken(num) {
 // learns the name from, gets the spelled-out name from demo-agent.json instead.
 const aloud = (text) => (cfg.spokenName ? text.replaceAll(site.businessName, cfg.spokenName) : text);
 
-const ryan = spoken(e164(site.contactCell));
+const textUs = spoken(e164(site.textNumber));
 const reveal = cfg.textTheCaller
   ? [
       'Tell them: when they hang up, within a minute they\'ll get a text with exactly what the owner would get for that call.',
@@ -63,8 +63,8 @@ const reveal = cfg.textTheCaller
     ].filter(Boolean).join(' ')
   : 'Then tell them what the text to the owner would say, like you\'re reading it out loud: the category, the problem in a few words, the caller\'s name and number, the area, when they want it, and that the caller was told the owner will call back.';
 const signup = cfg.textTheCaller
-  ? `reply YES to the text you'll get after this call, or text Ryan at ${ryan}. Ryan will set up a time to come by.`
-  : `text Ryan at ${ryan} and he'll set up a time to come by.`;
+  ? `reply YES to the text you'll get after this call, or text us at ${textUs}. We'll set up a time to come by.`
+  : `text us at ${textUs}. We'll set up a time to come by.`;
 
 const prompt = aloud(readFileSync(join(root, 'agent', 'demo-prompt.md'), 'utf8'))
   .replaceAll('[[REVEAL]]', reveal)

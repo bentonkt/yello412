@@ -22,7 +22,8 @@ Everything that might change lives in `site.config.json`:
 | Key | What it does |
 |---|---|
 | `demoNumber` | The demo line. While empty, the demo section says "Demo line opens soon" and points people to Ryan's cell. Any format works (`412-555-0100`). |
-| `contactName`, `contactCell`, `partnerName`, `partnerCell`, `contactEmail` | The text-us numbers in "Who you're dealing with", and the privacy page contact. |
+| `textNumber` | The "Text us to start" number on the site's buttons, and the one the demo agent tells callers to text. |
+| `contactName`, `contactCell`, `partnerName`, `partnerCell`, `contactEmail` | The names in "Who you're dealing with" and the privacy page contact. The two cells aren't shown anywhere; they only skip the demo line's daily call cap. |
 | `priceLine`, `priceLineSite`, `trialLength`, `trialDays` | Prices and the free trial (`trialLength` is the wording, `trialDays` sets the first-charge day). |
 | `cloudflareAnalyticsToken` | Optional. Paste the token from Cloudflare › Web Analytics to count visits (no cookies). |
 

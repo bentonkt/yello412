@@ -39,6 +39,7 @@ function pretty(num) {
 const demo = e164(config.demoNumber);
 const cell = e164(config.contactCell);
 const partner = e164(config.partnerCell);
+const text = e164(config.textNumber);
 const siteUrl = String(config.siteUrl).replace(/\/$/, '');
 
 const values = {
@@ -51,6 +52,8 @@ const values = {
   contactTel: cell,
   partnerCell: pretty(partner),
   partnerTel: partner,
+  textNumber: pretty(text),
+  textTel: text,
   year: String(new Date().getFullYear()),
   firstChargeDay: String(Number(config.trialDays) + 1),
 };
