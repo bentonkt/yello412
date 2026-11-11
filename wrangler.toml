@@ -11,13 +11,13 @@ compatibility_date = "2025-09-01"
 # yello412.com and www on this Worker; deploy makes their DNS records and certificates.
 # Uncomment once yello412.com shows Active in Cloudflare (README > Deploy). Until the domain
 # is on Cloudflare, deploy can't attach it.
-# [[routes]]
-# pattern = "yello412.com"
-# custom_domain = true
+[[routes]]
+pattern = "yello412.com"
+custom_domain = true
 #
-# [[routes]]
-# pattern = "www.yello412.com"
-# custom_domain = true
+[[routes]]
+pattern = "www.yello412.com"
+custom_domain = true
 
 [assets]
 directory = "./dist"
