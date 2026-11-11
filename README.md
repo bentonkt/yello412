@@ -4,7 +4,7 @@ The Yello 412 website and the demo line behind it. The site is plain HTML, CSS a
 
 ## Run it
 
-Needs Node 20 or newer.
+Needs Node 22 or newer (Cloudflare's CLI requires it).
 
 ```bash
 npm install          # wrangler (Cloudflare's CLI), three.js and esbuild
@@ -58,7 +58,7 @@ src/privacy.html      privacy and text-message terms
 src/404.html          page-not-found
 src/partials/         shared head, nav, footer
 src/styles.css        all styles; brand tokens at the top
-src/main.js           scroll effects (tape peel, ticker, reveals, phone steps); loads the 3D scene
+src/main.js           section links, the call/text bar, scroll effects (tape peel, ticker, reveals, phone steps); loads the 3D scene
 src/scene/            the 3D scene (see "The 3D scene" below)
 src/fonts/            Archivo and Inter, self-hosted (SIL Open Font License)
 src/img/              favicon, app icon, social share image (og.png)
@@ -83,26 +83,43 @@ If a visitor's device asks for reduced motion, or JavaScript is off, everything 
 
 ## The 3D scene
 
-Behind the home page is a stylised Pittsburgh at night: the three rivers, the yellow bridges, downtown, the stadiums, the incline. The logo hangs over the Point as a giant speech bubble. Rooftops light up red with calls nobody's answering. Halfway through scrolling the hero, the bubble picks up: it brightens and rings, and each call turns yellow and sends a beam to it. From there the camera flies to a new view for each section, the yellow section floods out of the bubble, and in "How it works" a beam lands on the phone each time the text arrives. Clicking or tapping the city places a call from that spot. A link to a far-off section (How it works, Pricing, Hear the demo) doesn't scroll there: yellow floods out from the link, the page and camera jump behind it, and it drains into the bubble. Hops shorter than a screen and a half scroll as normal.
+Behind the home page is a stylised Pittsburgh at night: the three rivers, the yellow bridges, downtown with its landmarks lit, the stadiums, the incline. The logo hangs over the Point as a giant speech bubble.
 
-**When it runs.** A short script in the home page's `<head>` adds `html.gl` if the browser has WebGL 2 with a real graphics card, the visitor hasn't asked for reduced motion or data saving, and the address doesn't say `?3d=off`. `main.js` then loads `scene.js`, and the scene adds `html.gl-ready` once it's drawing. Every 3D style in `styles.css` sits under `html.gl` (the last section of the file). If the scene fails to load, loses its graphics context, or can't hold about 30 frames a second after lowering its own quality three times, it removes `html.gl` and the page is the flat design again.
+What a visitor sees:
 
-**Files** (`src/scene/`, bundled with three.js into `dist/scene.js`, 640 KB on disk and about 140 KB the way Cloudflare sends it, loaded after the page has painted):
+- **Opening.** The city rises out of the ground. Three red beacons with job tags ("NO HEAT") come up one after another: calls nobody is answering. A call that goes unanswered flips its tag to "MISSED" before it fades.
+- **The pick-up.** The bubble brightens and rings, the headline pulses with it, every waiting call turns yellow and sends a beam to the bubble, and the bridges come up to full brightness. On wide screens this happens a third of the way through scrolling the pinned hero. On phones it plays by itself about four and a half seconds in (or as soon as they start scrolling), because the hero scrolls away under the thumb.
+- **Each section has its own camera shot**, and the camera rests on it while the section is being read.
+- **How it works.** The phone turns as the steps change. At step 3 a beam leaves the bubble, lands on the phone, the phone buzzes once and the text message springs in.
+- **The yellow section** floods out of the bubble once it has the window to itself and drains back before the next section.
+- **The demo number** gets a beam from the bubble every few seconds and buzzes like a phone ringing.
+- **Clicking or tapping the city** places a call from that spot.
+- **A link to a far-off section** (How it works, Pricing) doesn't scroll there: yellow floods out from the link, the page and camera jump behind it, and it drains into the bubble. Short hops scroll as normal.
+
+**When it runs.** A short script in the home page's `<head>` adds `html.gl` if the browser has WebGL 2 on a real graphics card, the visitor hasn't asked for reduced motion or data saving, and the address doesn't say `?3d=off`. `main.js` then loads `scene.js`, and the scene adds `html.gl-ready` once it's drawing. Every 3D style in `styles.css` sits under `html.gl` (the last section of the file).
+
+**When it bows out.** The scene removes `html.gl`, and the page is the flat design again with the reader kept at the same place, if: the script doesn't load, a shader doesn't compile, the graphics context is lost and doesn't come back within five seconds, something throws, or the device can't hold about 23 frames a second. Before giving up on a slow device it lowers its own quality in steps (glow off, then fewer pixels). A steady 30 frames a second, which is what an iPhone in Low Power Mode gives, counts as fine.
+
+**Two layouts.** *Side by side* (windows at least 1000px wide and 560px tall): copy on one side, the city on the other, hero pinned. *Stacked* (everything else): the city shows above each block of copy. The same media query, `(max-width: 999px), (max-height: 559px)`, is written in three places and they must agree: `styles.css`, `main.js` and `scene/index.js`.
+
+**Files** (`src/scene/`, bundled with three.js into `dist/scene.js`, about 650 KB on disk and about 140 KB the way Cloudflare sends it, loaded after the page has painted):
 
 | File | What it is |
 |---|---|
-| `index.js` | Starts everything, runs each frame, ties the scene to the scroll position, watches the frame rate. |
+| `index.js` | Starts everything, runs each frame, ties the scene to the scroll position, watches the frame rate, handles jumps and falling back. |
 | `camera.js` | The list of camera shots, one per section. **Edit this to reframe a section.** |
 | `geo.js` | The map: where the rivers, hills and street grids are, and where the bubble hangs. |
-| `city.js` | Where each building stands; the hand-placed landmarks. |
+| `city.js` | Where each building stands; the hand-placed landmarks and how each is lit. |
 | `world.js`, `shaders.js` | Ground, water, buildings, bridges, stadiums and lights, and the code that shades them. |
 | `bubble.js` | The speech bubble and its rings. |
 | `calls.js` | The calls: beacons, beams and job tags. The jobs on the tags are the `JOBS` list at the top. |
-| `dom.js` | The parts in the page itself: the phone that turns, the cards that tilt. |
+| `dom.js` | The parts in the page itself: the phone that turns and gets the text, the cards that tilt. |
 
-**Reframing a shot.** Each entry in `SHOTS` (`camera.js`) says where the camera is (`p`), what it looks at (`t`), the lens (`fov`), and how far to slide the picture sideways or up so it sits beside the text (`sx`, `sy`); `tall` overrides those on phones. To try values live, open the browser console on the preview and change `yello.scene.SHOTS[0].p`, then scroll a little. `yello.scene.replay()` plays the opening again.
+**Reframing a shot.** Each entry in `SHOTS` (`camera.js`) says where the camera is (`p`), what it looks at (`t`), the lens (`fov`), and how far to slide the picture sideways or up so it sits beside the text (`sx`, `sy`); `tall` overrides those in the stacked layout. To try values live, open the browser console on the preview and change `yello.scene.SHOTS[0].p`, then scroll a little. `yello.scene.replay()` plays the opening again.
 
-**Before shipping a change to it:** look at the home page on a real phone and on an older laptop, not only on a fast desktop. The scene was tuned on a desktop graphics card; the automatic quality steps are there for slower machines but haven't been tried on many.
+**Class names the scene adds to the page** must not match a class the flat design already styles. Two bugs came from exactly that (`.buzz` and `.ring`). The scene's are: `gl-ready`, `gl-called`, `gl-fell`, `wait`, `got-text`, `glow`, `tilting`, `is-ringing`, and `on` (on `.gl-cut`).
+
+**Before shipping a change to it:** look at the home page on a real iPhone, a laptop and an iPad. It has been checked in Chrome and in Safari's engine at those three sizes on a desktop graphics card, not on the devices themselves.
 
 ## The demo line
 

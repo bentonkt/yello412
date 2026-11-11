@@ -39,8 +39,9 @@ export function generateCity(rand, { reach = 640, thin = 1, clear = [] } = {}) {
 
   const inner = CELL * (1 - 2 * STREET);
 
-  function add(list, x, y, z, sx, sy, sz, ang, lit, kind) {
-    list.push({ x, y, z, sx, sy, sz, ang, seed: rand(), lit, kind });
+  // crown: how a landmark is lit (0 not, 1 a bright band under the roofline, 2 glass that glows, 3 brand yellow)
+  function add(list, x, y, z, sx, sy, sz, ang, lit, kind, crown = 0) {
+    list.push({ x, y, z, sx, sy, sz, ang, seed: rand(), lit, kind, crown });
   }
 
   function tower(x, z, y0, fx, fz, h, ang, lit) {
@@ -130,24 +131,25 @@ export function generateCity(rand, { reach = 640, thin = 1, clear = [] } = {}) {
   for (const l of LANDMARKS) {
     const ang = isSouth(l.x, l.z) ? ANG_S : ANG_N;
     const y0 = landHeight(l.x, l.z);
-    add(boxes, l.x, y0, l.z, l.w, l.h, l.d, ang, l.lit, 1);
+    const band = l.name === 'steel' || l.name === 'mellon' || l.name === 'oxford' ? 1 : l.name === 'ppg' ? 2 : 0;
+    add(boxes, l.x, y0, l.z, l.w, l.h, l.d, ang, l.lit, 1, band);
     let top = y0 + l.h;
     if (l.top === 'mansard') {
       add(boxes, l.x, top, l.z, l.w * 0.8, 3.2, l.d * 0.8, ang, 0, 2);
       add(boxes, l.x, top + 3.2, l.z, l.w * 0.52, 2.4, l.d * 0.52, ang, 0, 2);
       top += 5.6;
     } else if (l.top === 'spire') {
-      add(roofs, l.x, top, l.z, l.w, 7, l.d, ang, 0, 2);
+      add(roofs, l.x, top, l.z, l.w, 7, l.d, ang, 0, 2, 2);
       add(boxes, l.x, top + 6, l.z, 0.35, 9, 0.35, ang, 0, 2);
       top += 15;
     } else if (l.top === 'steps') {
       let w = l.w;
       for (let t = 0; t < 3; t++) {
         w *= 0.74;
-        add(boxes, l.x, top, l.z, w, 2.6, w, ang, l.lit, 1);
+        add(boxes, l.x, top, l.z, w, 2.6, w, ang, l.lit, 1, 3);
         top += 2.6;
       }
-      add(roofs, l.x, top, l.z, w, 4.5, w, ang, 0, 2);
+      add(roofs, l.x, top, l.z, w, 4.5, w, ang, 0, 2, 3);
       top += 4.5;
     } else if (l.top === 'castle') {
       // PPG Place: glass turrets on every corner and a crown in the middle.
@@ -155,10 +157,10 @@ export function generateCity(rand, { reach = 640, thin = 1, clear = [] } = {}) {
       for (const [a, b] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
         const u = a * l.w * 0.5, v = b * l.d * 0.5;
         const x = l.x + u * c - v * s, z = l.z + u * s + v * c;
-        add(boxes, x, y0, z, 2.4, l.h + 2.5, 2.4, ang, l.lit, 1);
-        add(roofs, x, y0 + l.h + 2.5, z, 2.4, 6, 2.4, ang, 0, 2);
+        add(boxes, x, y0, z, 2.4, l.h + 2.5, 2.4, ang, l.lit, 1, 2);
+        add(roofs, x, y0 + l.h + 2.5, z, 2.4, 6, 2.4, ang, 0, 2, 2);
       }
-      add(roofs, l.x, top, l.z, l.w * 0.62, 5, l.d * 0.62, ang, 0, 2);
+      add(roofs, l.x, top, l.z, l.w * 0.62, 5, l.d * 0.62, ang, 0, 2, 2);
       top += 8.5;
     } else {
       add(boxes, l.x, top, l.z, 0.5, 6, 0.5, ang, 0, 2);

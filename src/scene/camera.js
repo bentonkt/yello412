@@ -6,7 +6,9 @@
 //   sx, sy   slides the whole picture sideways / up, as a share of half the
 //            screen, so the subject sits beside the text instead of under it
 //   lift     extra height in the middle of the flight to the next shot
-//   tall     overrides for upright (phone) screens
+//   hold     0 = keep moving through this shot; otherwise the camera rests on
+//            each shot for a while either side of its place on the page
+//   tall     overrides for the stacked layout (phones, narrow or short windows)
 
 import * as THREE from 'three';
 
@@ -14,19 +16,20 @@ import * as THREE from 'three';
 // (first and last step), Sorted, the yellow section, Pricing, the demo number,
 // and the bottom of the page. index.js matches them to the page by position.
 export const SHOTS = [
-  { name: 'heroA', p: [-40, 132, 255], t: [60, 30, 0], fov: 34, sx: 0.43, sy: 0.08,
+  // The view from Mount Washington: the Point below, downtown to the right.
+  { name: 'heroA', p: [-110, 75, 190], t: [60, 32, 0], fov: 34, sx: 0.5, sy: 0.08, hold: 0,
     tall: { p: [-270, 86, -70], t: [44, 36, -2], fov: 46, sy: 0.36 } },
-  { name: 'heroB', p: [-18, 104, 206], t: [58, 34, 0], fov: 36, sx: 0.5, sy: 0.06,
+  { name: 'heroB', p: [-80, 58, 150], t: [60, 35, 0], fov: 36, sx: 0.5, sy: 0.06,
     tall: { p: [-215, 62, -58], t: [44, 40, -2], fov: 46, sy: 0.36 } },
-  { name: 'how1', p: [-250, 46, -62], t: [44, 40, -2], fov: 36, sx: 0.2, sy: 0.2, lift: 26,
+  { name: 'how1', p: [-250, 46, -62], t: [44, 40, -2], fov: 36, sx: 0.2, sy: 0.2, lift: 26, hold: 0,
     tall: { t: [40, 52, -2], fov: 58, sy: 0.46 } },
   { name: 'how3', p: [-186, 27, -50], t: [44, 42, -2], fov: 40, sx: 0.2, sy: 0.2,
     tall: { t: [40, 54, -2], fov: 62, sy: 0.46 } },
-  { name: 'sorted', p: [250, 215, -200], t: [44, 8, -10], fov: 38, sx: -0.45, sy: 0, lift: 40,
+  { name: 'sorted', p: [300, 90, -200], t: [44, 30, -6], fov: 36, sx: -0.5, sy: 0.1, lift: 40,
     tall: { p: [280, 250, -230], t: [40, 30, -2], fov: 52, sx: 0, sy: 0.38 } },
   { name: 'wipe', p: [58, 70, 78], t: [40, 60, -2], fov: 42, sx: 0, sy: -0.1,
     tall: { p: [70, 76, 150], fov: 54, sy: -0.1 } },
-  { name: 'pricing', p: [258, 18, 86], t: [44, 44, -2], fov: 46, sx: 0.47, sy: 0.12,
+  { name: 'pricing', p: [270, 58, 100], t: [44, 50, -2], fov: 44, sx: 0.62, sy: 0.47,
     tall: { p: [280, 22, 90], t: [40, 52, -2], fov: 60, sx: 0, sy: 0.46 } },
   { name: 'demo', p: [-150, 26, -40], t: [50, 40, -2], fov: 40, sx: 0.5, sy: 0.02, lift: 115,
     tall: { t: [40, 52, -2], fov: 58, sx: 0, sy: 0.46 } },
@@ -34,17 +37,18 @@ export const SHOTS = [
     tall: { t: [40, 50, -2], fov: 58, sx: 0, sy: 0.46 } },
 ];
 
+const HOLD = 0.2;          // share of each flight spent resting at either end
+const DESIGN_ASPECT = 1.6; // the side-by-side shots are composed for windows at least this wide
+const DESIGN_WIDTH = 1500; // past this the copy column stops growing, so the picture stops sliding further
+
 const lerp = (a, b, t) => a + (b - a) * t;
 const smooth = (t) => t * t * (3 - 2 * t);
+const clamp01 = (t) => (t < 0 ? 0 : t > 1 ? 1 : t);
 
-function resolve(shot, wide) {
-  const tall = shot.tall || {};
-  const pick = (k, d) => {
-    const w = shot[k] !== undefined ? shot[k] : d;
-    const n = tall[k] !== undefined ? tall[k] : (k === 'sx' ? 0 : w);
-    return Array.isArray(w) ? w.map((x, i) => lerp(n[i], x, wide)) : lerp(n, w, wide);
-  };
-  return { p: pick('p'), t: pick('t'), fov: pick('fov'), sx: pick('sx', 0), sy: pick('sy', 0) };
+function resolve(shot, stacked) {
+  const o = stacked && shot.tall ? shot.tall : {};
+  const pick = (k, d) => (o[k] !== undefined ? o[k] : shot[k] !== undefined ? shot[k] : d);
+  return { p: pick('p'), t: pick('t'), fov: pick('fov'), sx: stacked && o.sx === undefined ? 0 : pick('sx', 0), sy: pick('sy', 0) };
 }
 
 export function createRig(camera) {
@@ -58,17 +62,30 @@ export function createRig(camera) {
     cur,
     // Next update lands on the goal at once instead of gliding to it.
     snap() { started = false; },
-    // story: 0..SHOTS.length-1, fractional between shots. aspect: width / height.
-    aim(story, aspect) {
-      const wide = Math.min(1, Math.max(0, (aspect - 0.72) / 0.6));
+
+    // story: 0..SHOTS.length-1, fractional between shots.
+    // stacked: the page is in its one-column layout (see the media query in index.js).
+    aim(story, stacked, width, height) {
       const i = Math.min(SHOTS.length - 2, Math.max(0, Math.floor(story)));
-      const f = smooth(Math.min(1, Math.max(0, story - i)));
-      const a = resolve(SHOTS[i], wide), b = resolve(SHOTS[i + 1], wide);
+      const raw = clamp01(story - i);
+      const h = SHOTS[i].hold === 0 ? 0 : HOLD;
+      const f = smooth(clamp01((raw - h) / (1 - 2 * h)));
+      const a = resolve(SHOTS[i], stacked), b = resolve(SHOTS[i + 1], stacked);
       goal.p.set(lerp(a.p[0], b.p[0], f), lerp(a.p[1], b.p[1], f), lerp(a.p[2], b.p[2], f));
       goal.p.y += (SHOTS[i + 1].lift || 0) * Math.sin(Math.PI * f);
       goal.t.set(lerp(a.t[0], b.t[0], f), lerp(a.t[1], b.t[1], f), lerp(a.t[2], b.t[2], f));
-      goal.fov = lerp(a.fov, b.fov, f);
-      goal.sx = lerp(a.sx, b.sx, f);
+      let fov = lerp(a.fov, b.fov, f), sx = lerp(a.sx, b.sx, f);
+      if (!stacked) {
+        // A window narrower than the shots were composed for gets a wider lens, so the
+        // same width of city stays in view; a very wide one keeps the subject by the copy.
+        const aspect = width / height;
+        if (aspect < DESIGN_ASPECT) {
+          fov = Math.min(78, 2 * Math.atan(Math.tan(fov * Math.PI / 360) * DESIGN_ASPECT / aspect) * 180 / Math.PI);
+        }
+        sx *= Math.min(1, DESIGN_WIDTH / width);
+      }
+      goal.fov = fov;
+      goal.sx = sx;
       goal.sy = lerp(a.sy, b.sy, f);
     },
 

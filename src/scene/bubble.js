@@ -29,10 +29,12 @@ function texture(canvas, renderer) {
 const BODY_VERT = /* glsl */`
 varying vec3 vN;
 varying vec3 vV;
+varying vec2 vP;
 void main() {
   vec4 mv = modelViewMatrix * vec4(position, 1.);
   vN = normalMatrix * normal;
   vV = -mv.xyz;
+  vP = position.xy;
   gl_Position = projectionMatrix * mv;
 }
 `;
@@ -40,16 +42,22 @@ const BODY_FRAG = /* glsl */`
 uniform vec3 uYellow;
 uniform float uPower;
 uniform float uFlash;
+uniform float uTime;
 varying vec3 vN;
 varying vec3 vV;
+varying vec2 vP;
 void main() {
   vec3 N = normalize(vN), V = normalize(vV);
   float ndv = max(dot(N, V), 0.);
   float dif = max(dot(N, normalize(vec3(-.45, .7, .55))), 0.);
   float shade = mix(.42, 1., smoothstep(0., 1., dif * .6 + ndv * .5));
-  vec3 col = uYellow * shade;
+  // The face is the brand yellow; edges that turn away go amber, like moulded plastic.
+  vec3 base = mix(vec3(.95, .66, 0.), uYellow, smoothstep(.1, .75, N.y * .5 + .5 + ndv * .35));
+  vec3 col = base * shade * (1. + .07 * clamp(vP.y / .71, -1., 1.));
+  float sw = vP.x * .55 + vP.y - (mod(uTime * .8, 8.) - 2.5) * 2.;
+  col += vec3(1., .97, .8) * exp(-sw * sw * 5.) * .1 * ndv;       // a band of gloss slides across every ten seconds
   vec3 R = reflect(-V, N);
-  col += vec3(1., .96, .78) * smoothstep(.5, .95, R.y) * .16;    // a soft highlight along the top edge
+  col += vec3(1., .96, .78) * smoothstep(.5, .95, R.y) * .3;     // a highlight along the top edge
   col += uYellow * pow(clamp(1. - ndv, 0., 1.), 3.) * .2;
   col = col * uPower + uYellow * uFlash;
   gl_FragColor = vec4(col, 1.);
@@ -134,7 +142,7 @@ export function createBubble(shared, renderer) {
   });
   bodyGeo.translate(0, 0, -DEPTH / 2);
   const bodyMat = new THREE.ShaderMaterial({
-    uniforms: { uYellow: shared.uYellow, uPower: { value: 0.8 }, uFlash: { value: 0 } },
+    uniforms: { uYellow: shared.uYellow, uPower: { value: 0.8 }, uFlash: { value: 0 }, uTime: shared.uTime },
     vertexShader: BODY_VERT, fragmentShader: BODY_FRAG,
   });
   const body = new THREE.Mesh(bodyGeo, bodyMat);
@@ -196,7 +204,7 @@ export function createBubble(shared, renderer) {
     group,
     width: (W + 0.12 + w412) * EM,
     // where arcs land: just under the body
-    mouth: new THREE.Vector3(HUB[0], HUB[1] - hh * EM * 0.8, HUB[2]),
+    mouth: new THREE.Vector3(HUB[0], HUB[1] - hh * EM * 1.12, HUB[2]),
 
     ring() {
       rings[ringAt] = 0;

@@ -11,7 +11,7 @@ const MAX = 44;
 const SEG = 44;
 
 const JOBS = [
-  'No heat', 'Locked out', 'Burst pipe', 'Tow needed', 'Dead panel', 'Quote by Friday',
+  'No heat', 'Burst pipe', 'Locked out', 'Tow needed', 'Dead panel', 'Quote by Friday',
   'Leak in 3B', 'Brakes grinding', 'Tree down', 'Furnace out', 'Come Saturday?', 'Water heater',
 ];
 const FONT = 'Archivo, "Arial Black", system-ui, sans-serif';
@@ -39,12 +39,13 @@ vec3 arc(float t, float h) {
 void main() {
   float picked = uTime - iTime.y;
   float span = length(iEnd - iStart);
-  float h = iTime.w > .5 ? span * .1 : 10. + span * .2;
+  // Rise into the bubble from underneath; never loop over the top and cross its face.
+  float h = iTime.w > .5 ? span * .1 : min(10. + span * .2, max(4., (iEnd.y - iStart.y) * .3));
   vec3 p = arc(aT, h);
-  vec3 tangent = normalize(arc(aT + .01, h) - p);
+  vec3 tangent = normalize(arc(aT + .01, h) - p + vec3(0., 1e-5, 0.));
   vec3 toCam = cameraPosition - p;
   float dCam = length(toCam);
-  vec3 sideV = normalize(cross(tangent, toCam / dCam));
+  vec3 sideV = normalize(cross(tangent, toCam / dCam) + vec3(1e-5, 0., 0.));
   float dur = .5 + span / 300.;
   float head = picked / dur;
   float dh = head - aT;
@@ -92,7 +93,7 @@ void main() {
     p = iStart + vec3(position.x * 15., .35, position.y * 15.);
   } else {
     vec3 toCam = cameraPosition - iStart;
-    vec3 right = normalize(vec3(toCam.z, 0., -toCam.x));
+    vec3 right = normalize(vec3(toCam.z, 0., -toCam.x) + vec3(1e-5, 0., 0.));
     p = iStart + right * position.x * 1.7 + vec3(0., (position.y + .5) * 15., 0.);
   }
   vUv = uv;
@@ -207,14 +208,14 @@ export function createCalls(shared, sites, mouth, renderer) {
     sprite.renderOrder = 20;
     sprite.visible = false;
     group.add(sprite);
-    labels.push({ sprite, canvas, tex, call: null, text: '', picked: false });
+    labels.push({ sprite, canvas, tex, call: null, text: '', picked: false, missed: false });
   }
   function drawLabel(l) {
     const c = l.canvas, g = c.getContext('2d');
     g.clearRect(0, 0, c.width, c.height);
     g.font = `800 40px ${FONT}`;
     try { g.letterSpacing = '3px'; } catch (e) { /* fine */ }
-    const text = l.text.toUpperCase();
+    const text = (l.missed ? 'Missed' : l.text).toUpperCase();
     const tw = g.measureText(text).width;
     const w = Math.min(c.width - 8, tw + 52), h = 68, x = (c.width - w) / 2, y = 6, r = 22;
     g.beginPath();
@@ -224,10 +225,10 @@ export function createCalls(shared, sites, mouth, renderer) {
     g.lineTo(x + r, y + h); g.quadraticCurveTo(x, y + h, x, y + h - r);
     g.lineTo(x, y + r); g.quadraticCurveTo(x, y, x + r, y);
     g.closePath();
-    g.fillStyle = l.picked ? '#FFDD00' : 'rgba(23,25,28,.94)';
+    g.fillStyle = l.picked ? '#FFDD00' : l.missed ? '#FF4D2E' : 'rgba(23,25,28,.94)';
     g.fill();
-    if (!l.picked) { g.lineWidth = 4; g.strokeStyle = '#FF4D2E'; g.stroke(); }
-    g.fillStyle = l.picked ? '#17191C' : '#EDEAE4';
+    if (!l.picked && !l.missed) { g.lineWidth = 4; g.strokeStyle = '#FF4D2E'; g.stroke(); }
+    g.fillStyle = l.picked || l.missed ? '#17191C' : '#EDEAE4';
     g.textBaseline = 'middle';
     g.fillText(text, x + (w - tw) / 2 + 1, y + h / 2 + 3);
     l.tex.needsUpdate = true;
@@ -237,7 +238,10 @@ export function createCalls(shared, sites, mouth, renderer) {
   const calls = [];
   for (let i = 0; i < MAX; i++) calls.push({ alive: false, born: 0, pick: 1e6, gone: 0, kind: 0, start: new THREE.Vector3(), end: new THREE.Vector3(), arrive: 1e6, arrived: false, follow: null, onArrive: null });
   const v = new THREE.Vector3();
-  let nextSpawn = 0.6, jobAt = Math.floor(Math.random() * JOBS.length), dirty = false;
+  // The first three calls come in one after another as the city finishes rising
+  // (seconds after the scene shows), each with its tag; then the usual trickle.
+  const SEED = [1.9, 2.5, 3.1];
+  let nextSpawn = 1e9, seeded = 0, jobAt = 0, dirty = false;
   let wasActive = false;
 
   function write(i) {
@@ -273,7 +277,7 @@ export function createCalls(shared, sites, mouth, renderer) {
     if (tag) {
       const l = labels.find((x) => !x.call);
       if (l) {
-        l.call = c; l.text = JOBS[jobAt++ % JOBS.length]; l.picked = false;
+        l.call = c; l.text = JOBS[jobAt++ % JOBS.length]; l.picked = false; l.missed = false;
         drawLabel(l);
         l.sprite.position.set(pos.x, pos.y + 15.5, pos.z);
         l.sprite.visible = true;
@@ -338,7 +342,7 @@ export function createCalls(shared, sites, mouth, renderer) {
       write(i);
     },
 
-    update(time, dt, camera, { active, rate, box, avoid, onArrive }) {
+    update(time, dt, camera, { active, rate, box, avoid, intro, onArrive }) {
       // The moment the bubble goes live, every waiting call gets picked up.
       if (active && !wasActive) {
         let k = 0;
@@ -346,15 +350,26 @@ export function createCalls(shared, sites, mouth, renderer) {
       }
       wasActive = active;
 
-      if (time > nextSpawn && sites.length) {
-        const s = siteInView(camera, box);
+      let force = false;
+      if (seeded < SEED.length && intro > SEED[seeded]) { seeded++; force = true; }
+      if ((force || time > nextSpawn) && sites.length) {
+        // Before the pick-up the picture should always have a couple of named calls in it,
+        // so try a few rooftops until one has room for its tag.
+        const wantTag = force || (!active && labels.filter((l) => l.call).length < 2);
+        let s = null, tag = false;
+        for (let k = 0; k < (wantTag ? 6 : 1); k++) {
+          const c = siteInView(camera, box);
+          if (!c) break;
+          s = c;
+          tag = roomForTag(camera, avoid);
+          if (tag) break;
+        }
         if (s) {
-          const tag = roomForTag(camera, avoid);
           v.set(s[0], s[1], s[2]);
           const i = spawn(time, v, { tag, hold: active ? 8 : 6 + Math.random() * 3 });
           if (i >= 0 && active) pickUp(i, time, 0.55 + Math.random() * 0.5);
         }
-        nextSpawn = time + (active ? 0.35 + Math.random() * 0.55 : 0.5 + Math.random() * 0.7) / rate;
+        nextSpawn = seeded < SEED.length ? 1e9 : time + (active ? 0.35 + Math.random() * 0.55 : 0.5 + Math.random() * 0.7) / rate;
       }
 
       for (let i = 0; i < MAX; i++) {
@@ -377,7 +392,9 @@ export function createCalls(shared, sites, mouth, renderer) {
         const c = l.call;
         if (!c) continue;
         const picked = time >= c.pick;
-        if (picked !== l.picked) { l.picked = picked; drawLabel(l); }
+        // A call nobody picked up says so before it goes.
+        const missed = !picked && c.pick > 1e5 && c.gone - time < 1.1;
+        if (picked !== l.picked || missed !== l.missed) { l.picked = picked; l.missed = missed; drawLabel(l); }
         const fadeIn = Math.min(1, (time - c.born) / 0.25);
         const fadeOut = Math.min(1, Math.max(0, (c.gone - time) / 0.5));
         const pop = picked ? 1 + 0.25 * Math.max(0, 1 - (time - c.pick) / 0.3) : 1;

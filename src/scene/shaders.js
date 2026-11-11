@@ -59,6 +59,7 @@ void main() {
   vec3 d = normalize(vDir);
   float h = smoothstep(0., .55, d.y);
   vec3 col = mix(uFogColor, uZenith, h);
+  col += vec3(.10, .115, .15) * exp(-max(d.y, 0.) * 14.) * .55;   // haze along the horizon
   // a few stars, high up
   vec2 sp = d.xz / (abs(d.y) + .35) * 260.;
   vec2 cell = floor(sp);
@@ -126,7 +127,7 @@ void main() {
   float c = cos(ang), s = sin(ang);
   vec2 q = vec2(p.x * c + p.y * s, -p.x * s + p.y * c) / ${f(CELL)};
   vec2 fq = abs(fract(q) - .5);
-  float fw = min(fwidth(q.x) + fwidth(q.y), .5);
+  float fw = clamp(fwidth(q.x) + fwidth(q.y), 1e-4, .5);
   float m = max(fq.x, fq.y);
   float st = smoothstep(.5 - ${f(STREET)} - fw, .5 - ${f(STREET)} + fw, m);
   float far = smoothstep(.1, .4, fw);
@@ -150,9 +151,11 @@ void main() {
   float pool = uHubPow / (1. + dh * dh / 6400.);
   float pu = pulseAt(dh);
   land += uYellow * pool * .03;
-  land += uYellow * pu * (.05 + .55 * st * urban);
+  land += uYellow * pu * (.03 + .75 * st * urban);             // the rings light the streets, not whole neighbourhoods
 
-  // water: dark, with the bubble's reflection broken up by ripples
+  // water: dark, mirroring the lit city and the bubble, broken up by ripples
+  vec3 wcol = uWater;
+  if (water > .001) {
   float t = uTime;
   vec2 w1 = p * .21 + vec2(t * .33, t * .11);
   vec2 w2 = p * .53 + vec2(-t * .21, t * .29);
@@ -163,22 +166,38 @@ void main() {
   float calm = mix(1., .25, smoothstep(80., 700., dist));
   vec3 N = normalize(vec3(grad.x * .17 * calm, 1., grad.y * .17 * calm));
   float fres = pow(clamp(1. - dot(N, V), 0., 1.), 3.);
-  vec3 wcol = uWater + uSheen * fres;
-  vec3 H = normalize(normalize(uHub - vW) + V);
+  wcol += uSheen * fres;
+  vec3 H = normalize(normalize(uHub - vW) + V + vec3(0., 1e-5, 0.));
   float nh = max(dot(N, H), 0.);
-  wcol += uYellow * uHubPow * (pow(nh, 220.) * .9 + pow(nh, 20.) * .012);
+  wcol += uYellow * uHubPow * (pow(nh, 220.) * .35 + pow(nh, 20.) * .012);
   wcol += uYellow * pu * .06;
-  // city lights smeared along the banks
+  // Reflections. Mirror the line of sight in flat water and ask where it lands:
+  // on downtown (columns of window light, cut into dashes by the ripples) or on the bubble.
+  float ry = max(V.y, .05);
+  vec2 q1 = p - V.xz * (14. / ry) - CORE;
+  vec2 q2 = p - V.xz * (34. / ry) - CORE;
+  float skyl = min(exp(-dot(q1, q1) / 5000.) + .8 * exp(-dot(q2, q2) / 2500.), 1.);
+  vec2 dv = p - cameraPosition.xz;
+  float pa = dv.x / (abs(dv.x) + abs(dv.y) + .001);
+  float sd = dv.y < 0. ? 3. : 9.;
+  float colm = hash21(vec2(floor(pa * 400.), sd));
+  float brk = smoothstep(.25, .6, hash21(vec2(floor(log(length(dv) + 1.) * 55. + grad.x * 1.2), floor(pa * 60.) + sd)));
+  wcol += uLamp * skyl * (.03 + .3 * smoothstep(.8, .97, colm) * brk) * on;
+  vec2 qb = p - V.xz * (uHub.y / ry) - uHub.xz;
+  wcol += uYellow * uHubPow * exp(-dot(qb, qb) / 1400.) * (.22 + .35 * brk);
+  // a few lamps along the banks
   vec2 sp = vec2(p.x * c + p.y * s, -p.x * s + p.y * c);
   float glint = hash21(floor(vec2(sp.x * .55, sp.y * 1.9) + grad * 1.2));
   float nearBank = smoothstep(-13., -.5, rd) * (1. - smoothstep(60., 520., dist));
-  wcol += uLamp * step(.93, glint) * nearBank * urbanW * on * .4;
+  wcol += uLamp * step(.97, glint) * nearBank * urbanW * on * .2;
+  }
 
   vec3 col = mix(land, wcol, water);
   float sh = rd / (.55 + aa);
   col += uShore * exp(-sh * sh) * on;         // bank outline, like a map
 
   col = mix(col, uFogColor, fogF(dist));
+  col = min(max(col, 0.), 16.);               // never hand bloom a bad number
   gl_FragColor = vec4(col, 1.);
   #include <colorspace_fragment>
 }
@@ -188,7 +207,7 @@ void main() {
 
 export const BUILDING_VERT = /* glsl */`
 ${COMMON}
-attribute vec4 aData;       // seed, share of windows lit, kind, unused
+attribute vec4 aData;       // seed, share of windows lit, kind, crown (0 none, 1 lit band, 2 glass, 3 yellow)
 varying vec3 vW;
 varying vec3 vN;
 varying vec2 vUv;
@@ -197,6 +216,7 @@ varying vec3 vScl;
 varying float vH;
 varying float vDist0;
 varying float vFace;
+varying float vCrown;
 void main() {
   vec3 scl = vec3(length(instanceMatrix[0].xyz), length(instanceMatrix[1].xyz), length(instanceMatrix[2].xyz));
   vec3 base = (modelMatrix * instanceMatrix * vec4(0., 0., 0., 1.)).xyz;
@@ -206,16 +226,16 @@ void main() {
   float gr = clamp((uIntroR - dist0) / 95., 0., 1.);
   float grow = 1. - pow(1. - gr, 3.);
   grow *= 1. + .16 * sin(gr * 3.14159) * (1. - gr);
-  vec3 p = position;
-  p.y *= grow;
-
-  vec4 wp = modelMatrix * instanceMatrix * vec4(p, 1.);
+  // Grow in world space, so upper tiers stay on their tower, and wait under the ground until then.
+  vec4 wp = modelMatrix * instanceMatrix * vec4(position, 1.);
+  wp.y = wp.y * grow - (1. - min(grow, 1.)) * 1.5;
   vW = wp.xyz;
   vN = normalize(mat3(modelMatrix) * mat3(instanceMatrix) * normal);
   vScl = scl;
   vH = position.y * scl.y;
   vDist0 = dist0;
   vData = aData.xyz;
+  vCrown = aData.w;
   if (abs(normal.y) > .9) { vUv = position.xz * scl.xz; vFace = 0.; }
   else if (abs(normal.x) > abs(normal.z)) { vUv = vec2(position.z * scl.z, position.y * scl.y); vFace = normal.x > 0. ? 1. : 2.; }
   else { vUv = vec2(position.x * scl.x, position.y * scl.y); vFace = normal.z > 0. ? 3. : 4.; }
@@ -236,10 +256,14 @@ varying vec3 vScl;
 varying float vH;
 varying float vDist0;
 varying float vFace;
+varying float vCrown;
 void main() {
-  float seed = vData.x, litShare = vData.y, kind = vData.z;
+  // Snapped, because interpolation leaves a hair of noise on values that should be constant
+  // and the hash below turns that into speckle.
+  float seed = (floor(vData.x * 4096.) + .5) / 4096., litShare = vData.y, kind = vData.z;
+  float face = floor(vFace + .5);
   vec3 N = normalize(vN);
-  bool roof = vFace < .5;
+  bool roof = face < .5;
   vec3 toCam = cameraPosition - vW;
   float dist = length(toCam);
 
@@ -250,8 +274,12 @@ void main() {
     float e = min(vScl.x * .5 - abs(vUv.x), vScl.z * .5 - abs(vUv.y));
     col = uRoof * (1. + .8 * (1. - smoothstep(0., .4, e)));
   } else {
-    col = uWall * sideL * (.8 + .4 * hash21(vec2(seed * 53., vFace)));
+    col = uWall * sideL * (.8 + .4 * hash21(vec2(seed * 53., face)));
     col *= mix(.45, 1., smoothstep(0., 4., vH));               // darker towards the street
+    // a lighter edge up each corner and towards the top, so boxes separate from each other
+    float halfW = (face < 2.5 ? vScl.z : vScl.x) * .5;
+    col += uRoof * .55 * (1. - smoothstep(0., .22, halfW - abs(vUv.x))) * smoothstep(0., 3., vH);
+    col += uRoof * .22 * smoothstep(.55, 1., vH / max(vScl.y, 1.));
   }
 
   if (!roof && kind < 1.5) {
@@ -260,9 +288,13 @@ void main() {
     float band = step(.75, vH) * step(vH, vScl.y - .5);
     vec2 cell = floor(wuv);
     vec2 fr = fract(wuv);
-    float r = hash21(cell + vec2(seed * 91.7, vFace * 17.3 + seed * 13.1));
+    // Towers come in three kinds: separate windows, ribbon windows, and tall windows between piers.
+    float style = kind > .5 ? floor(hash21(vec2(seed * 7.1, 3.)) * 3.) : 0.;
+    bool ribbon = style > .5 && style < 1.5, piers = style > 1.5;
+    vec2 lc = ribbon ? vec2(floor(cell.x / 5.), cell.y) : piers ? vec2(cell.x, floor(cell.y / 4.)) : cell;
+    float r = hash21(lc + vec2(seed * 91.7, face * 17.3 + seed * 13.1));
     float lit = step(1. - litShare, r);
-    float win = step(.2, fr.x) * step(fr.x, .8) * step(.24, fr.y) * step(fr.y, .78);
+    float win = (ribbon ? 1. : step(.2, fr.x) * step(fr.x, .8)) * (piers ? step(.08, fr.y) : step(.24, fr.y) * step(fr.y, .78));
     float px = fwidth(wuv.x) + fwidth(wuv.y);
     float detail = clamp(1.5 - px * 1.7, 0., 1.);
     float glow = mix(litShare * .3, lit * win, detail) * band;
@@ -273,16 +305,28 @@ void main() {
     col += uRoof * win * (1. - lit) * detail * band * .5;       // unlit glass catches a little sky
   }
 
-  // the bubble lights the faces turned towards it
+  // Landmarks: a lit band under the roofline, glass that glows from inside, or brand yellow.
+  float cOn = smoothstep(0., 1., (uIntroR - vDist0 - 200.) / 40.);
+  float cb = step(.5, vCrown) * step(vCrown, 1.5), cg = step(1.5, vCrown) * step(vCrown, 2.5), cy = step(2.5, vCrown);
+  float hN = clamp(vH / max(vScl.y, 1.), 0., 1.);
+  float cband = smoothstep(vScl.y - 3.6, vScl.y - 3.3, vH) * (1. - smoothstep(vScl.y - 1.2, vScl.y - .9, vH));
+  if (!roof) col += vec3(.8, .9, 1.) * cb * cband * .7 * cOn;
+  col += uWinCool * cg * (.07 + .22 * hN) * cOn;
+  col += uYellow * cy * (.15 + .45 * hN) * cOn;
+
+  // The bubble lights the faces turned towards it: a warm rim, not a wash.
   vec3 toHub = uHub - vW;
   float dh = length(toHub);
   float hl = uHubPow / (1. + dh * dh / 9000.);
-  float facing = roof ? .75 : max(dot(N, toHub / dh), 0.) * .9 + .1;
-  col += uYellow * hl * facing * .13;
+  float facing = roof ? .3 : pow(max(dot(N, toHub / max(dh, .001)), 0.), 1.5);
+  col += mix(uYellow, vec3(1., .86, .55), .45) * hl * facing * .17;
+  // Its rings pick out roof edges as they pass.
   float pu = pulseAt(length(vW.xz - uHub.xz));
-  col += uYellow * pu * (roof ? .55 : .3);
+  float re = min(vScl.x * .5 - abs(vUv.x), vScl.z * .5 - abs(vUv.y));
+  col += uYellow * pu * (roof ? .08 + .85 * (1. - smoothstep(0., .45, re)) : .2);
 
   col = mix(col, uFogColor, fogF(dist));
+  col = min(max(col, 0.), 16.);
   gl_FragColor = vec4(col, 1.);
   #include <colorspace_fragment>
 }
@@ -316,6 +360,7 @@ void main() {
   if (!gl_FrontFacing) N = -N;
   float l = .42 + .58 * max(dot(N, normalize(vec3(-.4, .75, .5))), 0.);
   vec3 col = vColor.rgb * mix(l, 1., vColor.a);
+  col *= mix(.55, 1., smoothstep(.45, 1., uHubPow));           // dimmer until the bubble picks up
   float pu = pulseAt(length(vW.xz - uHub.xz));
   col += uYellow * pu * .25;
   float dist = length(cameraPosition - vW);

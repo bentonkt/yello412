@@ -39,7 +39,7 @@ export function createWorld(shared, rand, quality) {
   const sky = new THREE.Mesh(
     new THREE.SphereGeometry(1, 24, 12),
     new THREE.ShaderMaterial({
-      uniforms: uniforms({ uZenith: { value: col(0x08090B) } }),
+      uniforms: uniforms({ uZenith: { value: col(0x05070D) } }),
       vertexShader: SKY_VERT, fragmentShader: SKY_FRAG,
       side: THREE.BackSide, depthWrite: false, depthTest: false,
     }));
@@ -64,10 +64,10 @@ export function createWorld(shared, rand, quality) {
     uniforms: uniforms({
       uSeg: { value: RIVERS.map((r) => new THREE.Vector4(r[0], r[1], r[2], r[3])) },
       uHw: { value: RIVERS.map((r) => r[4]) },
-      uLand: { value: col(0x191C20) },
+      uLand: { value: col(0x14181F) },
       uWater: { value: col(0x040609) },
       uSheen: { value: col(0x3A4350) },
-      uStreet: { value: col(0x4A3A22) },
+      uStreet: { value: col(0x4A3418) },
       uLamp: { value: col(0xFFC47A) },
       uShore: { value: col(0x6A7480) },
     }),
@@ -80,8 +80,8 @@ export function createWorld(shared, rand, quality) {
   const city = generateCity(rand, { reach: quality.low ? 500 : 640, thin: quality.low ? 0.8 : 1, clear: quality.clear || [] });
   const buildingMat = new THREE.ShaderMaterial({
     uniforms: uniforms({
-      uWall: { value: col(0x23272D) },
-      uRoof: { value: col(0x2C3138) },
+      uWall: { value: col(0x1E2431) },
+      uRoof: { value: col(0x272E3B) },
       uWinWarm: { value: col(0xFFE2A8) },
       uWinCool: { value: col(0xC9DCFF) },
     }),
@@ -98,7 +98,8 @@ export function createWorld(shared, rand, quality) {
       dummy.scale.set(b.sx, b.sy, b.sz);
       dummy.updateMatrix();
       mesh.setMatrixAt(i, dummy.matrix);
-      data[i * 4] = b.seed; data[i * 4 + 1] = b.lit; data[i * 4 + 2] = b.kind;
+      data[i * 4] = (Math.floor(b.seed * 4096) + 0.5) / 4096;   // see the snap in BUILDING_FRAG
+      data[i * 4 + 1] = b.lit; data[i * 4 + 2] = b.kind; data[i * 4 + 3] = b.crown || 0;
     });
     geometry.setAttribute('aData', new THREE.InstancedBufferAttribute(data, 4));
     mesh.instanceMatrix.needsUpdate = true;
@@ -271,12 +272,16 @@ export function createWorld(shared, rand, quality) {
   // ---------- stadiums ----------
   for (const s of STADIUMS) {
     const arc = Math.PI * 2 - s.open;
-    const bowl = new THREE.CylinderGeometry(s.r, s.r * 0.66, 5.2, 48, 1, true, s.face + s.open / 2, arc);
-    const n = bowl.attributes.position.count;
-    const a = new Float32Array(n * 4);
+    const from = s.face + s.open / 2;
     const inside = s.glow === 'yellow' ? col(0xA89200) : col(0x8E8A80);
-    for (let i = 0; i < n; i++) { a[i * 4] = inside.r; a[i * 4 + 1] = inside.g; a[i * 4 + 2] = inside.b; a[i * 4 + 3] = 1; }
-    bowl.setAttribute('aColor', new THREE.BufferAttribute(a, 4));
+    const bowl = mergeGeometries([
+      paint(new THREE.CylinderGeometry(s.r, s.r * 0.94, 5.2, 48, 1, true, from, arc), inside, 1),                               // outer wall
+      paint(new THREE.CylinderGeometry(s.r * 0.97, s.r * 0.5, 4.6, 48, 1, true, from, arc).translate(0, -0.3, 0), inside, 1),   // seats
+    ], false);
+    const turf = new THREE.Mesh(paint(new THREE.CircleGeometry(s.r * 0.5, 40).rotateX(-Math.PI / 2), col(0x1E4D33), 0.6), propMat);
+    turf.position.set(s.x, 0.5, s.z);
+    turf.frustumCulled = false;
+    group.add(turf);
     const mesh = new THREE.Mesh(bowl, new THREE.ShaderMaterial({
       uniforms: uniforms({}),
       vertexShader: PROP_VERT,

@@ -28,8 +28,9 @@
   "priceRange": "${{priceLine}}–${{priceLineSite}} per month"
 }
 </script>
-<script>(function(d,q,c,g){try{if(!d.classList.contains("js")||/[?&]3d=off/.test(q))return;if(navigator.connection&&navigator.connection.saveData)return;c=document.createElement("canvas");g=c.getContext("webgl2",{failIfMajorPerformanceCaveat:!/[?&]3d=force/.test(q)});if(g){d.classList.add("gl");g=g.getExtension("WEBGL_lose_context");g&&g.loseContext()}}catch(e){}})(document.documentElement,location.search)</script>
+<script>(function(d,q,c,g){setTimeout(function(){if(!(window.yello&&window.yello.main))d.classList.remove("js","gl")},5000);try{if(!d.classList.contains("js")||/[?&]3d=off/.test(q))return;if(navigator.connection&&navigator.connection.saveData)return;c=document.createElement("canvas");g=c.getContext("webgl2",{failIfMajorPerformanceCaveat:!/[?&]3d=force/.test(q)});if(g){d.classList.add("gl");g=g.getExtension("WEBGL_lose_context");g&&g.loseContext()}}catch(e){}})(document.documentElement,location.search)</script>
 <meta name="yello-scene" content="{{asset:scene.js}}">
+<meta name="format-detection" content="telephone=no">
 <script src="{{asset:main.js}}" defer></script>
 </head>
 <body>
@@ -51,18 +52,19 @@
 
       <div class="wrap hero-body" id="content" tabindex="-1">
         <div class="hero-copy">
-          <p class="hero-eyebrow fu">Answering service for Pittsburgh small businesses</p>
+          <p class="hero-eyebrow fu"><span class="eb-wide">Answering service for Pittsburgh small businesses</span><span class="eb-narrow">Pittsburgh answering service</span></p>
           <h1 class="hero-title">
             <span class="ln ln-kicker"><span class="ln-i">Missed a call on the job?</span></span>
             <span class="ln ln-big"><span class="ln-i">We pick up.</span></span>
           </h1>
           <p class="hero-sub">{{businessName}} answers the calls you can&#8217;t get to, in your business&#8217;s name, takes down the details and texts you the job within 60 seconds.</p>
           <div class="hero-cta fu fu-late">
-            <a class="btn btn-lg" href="#demo">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-              Hear the demo
-            </a>
-            <p class="hero-price">Free for {{trialLength}}, then ${{priceLine}}/mo.<br>Cancel by text.</p>
+            <!--if:demoTel-->
+            <a class="btn btn-lg" href="tel:{{demoTel}}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg><span>Call the demo <span class="nw">{{demoNumber}}</span></span></a>
+<!--else-->
+            <a class="btn btn-lg" href="#demo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Hear the demo</a>
+<!--/if-->
+            <p class="hero-price"><strong>Free for {{trialLength}},</strong> then ${{priceLine}}/mo flat. <br>Cancel by text.</p>
           </div>
         </div>
 
@@ -261,8 +263,9 @@
             <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#17191C" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5 L10 17.5 L19 7"/></svg>One sorted text within 60 seconds</li>
             <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#17191C" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5 L10 17.5 L19 7"/></svg>Emergencies ring your cell</li>
             <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#17191C" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5 L10 17.5 L19 7"/></svg>We set it up in person at your shop or office</li>
+            <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#17191C" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5 L10 17.5 L19 7"/></svg>You keep your number. Missed calls forward to your line</li>
           </ul>
-          <a class="btn btn-md" href="#demo">Hear the demo</a>
+          <div class="plan-act"><a class="btn btn-md" href="sms:{{contactTel}}?&amp;body=Hi%20{{contactName}}%2C%20I%20want%20to%20try%20Yello%20412.%20My%20business%20is%20"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-8 8H5l-2 2V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z"/></svg>Text {{contactName}} to start</a><p class="plan-alt">{{contactCell}}. He&#8217;ll set up a time to come by.</p></div>
         </article>
 
         <article class="plan plan-dark rv d1">
@@ -287,8 +290,13 @@
       <div class="demo-head rv pop">
         <p class="kicker">Hear it now</p>
 <!--if:demoTel-->
-        <h2 class="demo-title" id="demo-title"><a class="buzz" href="tel:{{demoTel}}">Call {{demoNumber}}</a></h2>
+        <h2 class="demo-title" id="demo-title"><a class="buzz" href="tel:{{demoTel}}">Call <span class="nw">{{demoNumber}}</span></a></h2>
         <p class="lead">Call it the way a customer would. What you hear is what yours will hear.</p>
+        <ol class="demo-how">
+          <li>It asks your business name, then answers as your line.</li>
+          <li>Play the customer. Say your furnace quit.</li>
+          <li>Three minutes, tops. The call is recorded.</li>
+        </ol>
 <!--else-->
         <h2 class="demo-title" id="demo-title"><span class="buzz">Demo line opens soon.</span></h2>
         <p class="lead">Want to hear it now? Text {{contactName}} at <a href="sms:{{contactTel}}">{{contactCell}}</a> and we&#8217;ll call you from it.</p>
@@ -303,12 +311,21 @@
           <p>We&#8217;re not a call center and we&#8217;re not a software company in California. We set up your line in person, at your shop, in 15 minutes.</p>
           <p>If something&#8217;s wrong, you don&#8217;t file a ticket. You text {{contactName}}: <a href="sms:{{contactTel}}">{{contactCell}}</a> or {{partnerName}}: <a href="sms:{{partnerTel}}">{{partnerCell}}</a></p>
           <p class="team-close">Free for {{trialLength}}. Cancel by text.</p>
+          <p class="team-act"><a class="btn btn-lg" href="sms:{{contactTel}}?&amp;body=Hi%20{{contactName}}%2C%20I%20want%20to%20try%20Yello%20412.%20My%20business%20is%20"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-8 8H5l-2 2V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z"/></svg>Text {{contactName}} to start</a></p>
+          <p class="team-next">He&#8217;ll set up a time to come by. Setup takes 15 minutes.</p>
         </div>
       </div>
     </div>
   </section>
 
 </main>
+
+<div class="dock" role="region" aria-label="Call or text">
+<!--if:demoTel-->
+  <a class="btn dock-call" href="tel:{{demoTel}}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg><span>Call the demo<span class="dock-num"> {{demoNumber}}</span></span></a>
+<!--/if-->
+  <a class="btn dock-text" href="sms:{{contactTel}}?&amp;body=Hi%20{{contactName}}%2C%20I%20want%20to%20try%20Yello%20412.%20My%20business%20is%20"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-8 8H5l-2 2V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z"/></svg>Text {{contactName}}</a>
+</div>
 
 <!--include:footer-->
 </body>
