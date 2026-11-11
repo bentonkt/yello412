@@ -194,11 +194,30 @@ async function saveLlm() {
   }
 }
 
+// Retell now and then answers 404 for an agent that's there (it did on 2026-11-10, then
+// 200 a minute later), so ask a few times before deciding it's gone.
+async function getAgent(id) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await retell('GET', `/get-agent/${id}`);
+    } catch (err) {
+      if (err.status !== 404) throw err;
+      if (attempt === 4) {
+        console.error(`Retell can't find ${id} (agent_id in agent/retell-ids.json).`);
+        console.error('Check RETELL_API_KEY is from the workspace that has the "Yello 412 demo" agent. If the agent was deleted, remove agent_id from agent/retell-ids.json and run this again to make a new one.');
+        process.exit(1);
+      }
+      console.warn(`Retell said ${id} wasn't found; asking again (${attempt}/3)…`);
+      await new Promise((r) => setTimeout(r, 2000 * attempt));
+    }
+  }
+}
+
 // A published version is read-only. Start a draft from it and edit that instead;
 // Retell gives the LLM a matching draft. The demo number stays on the published
 // version until the end of this script.
 if (ids.agent_id) {
-  const latest = await retell('GET', `/get-agent/${ids.agent_id}`);
+  const latest = await getAgent(ids.agent_id);
   if (latest.is_published) {
     const draft = await retell('POST', `/create-agent-version/${ids.agent_id}`, { base_version: latest.version });
     console.log(`Version ${latest.version} is published, so started draft version ${draft.version} from it.`);
