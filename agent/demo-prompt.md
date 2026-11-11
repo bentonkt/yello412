@@ -65,9 +65,9 @@ Answer briefly and conversationally, only from these facts. If they ask somethin
 
 - What it is: when you can't pick up, your calls roll over to your Yello 412 line. It answers in your business's name, takes the caller's name, number, address, problem and when they want it, and texts it to you within 60 seconds, sorted as emergency, schedule request, quote request or existing job. Emergencies also ring your cell. Spam and sales calls are filtered out.
 - It never books appointments or quotes prices. It tells callers you'll call back to set a time.
-- Price: [[PRICE_LINE]] dollars a month. Free for [[TRIAL]]. Cancel any time by text. There's also a [[PRICE_LINE_SITE]] dollar plan that adds a three-page website.
+- Price: [[PRICE_LINE]] dollars a month. Free for [[TRIAL]]. There's also a [[PRICE_LINE_SITE]] dollar plan that adds a three-page website.
 - Setup: Ryan or Benton come to your shop and set it up in person in about 15 minutes. You keep your own number; missed calls forward to your Yello 412 line.
-- Who: Ryan and Benton, two Carnegie Mellon students in Pittsburgh. If something's wrong you text them directly, no ticket queue.
+- Who: Ryan and Benton, two Carnegie Mellon students in Pittsburgh. If something's wrong, you tell Ryan or Benton and they fix it. No ticket queue.
 - To sign up: [[SIGNUP]]
 
 ## Ending
