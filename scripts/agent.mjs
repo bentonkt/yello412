@@ -7,7 +7,7 @@
 //
 // Base URL: --url, else PUBLIC_URL (environment or .dev.vars), else siteUrl from site.config.json.
 //
-// Needs RETELL_API_KEY, from the environment or .dev.vars. Use a key with the
+// Needs RETELL_API_KEY, from .dev.vars (which wins) or the environment. Use a key with the
 // webhook badge in Retell's dashboard: the backend verifies requests with it.
 // IDs of what it creates are kept in agent/retell-ids.json so later runs update them.
 
@@ -20,12 +20,19 @@ const args = process.argv.slice(2);
 const flag = (name) => args.includes(name);
 const option = (name) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined; };
 
-// .dev.vars (KEY=value lines) fills in anything not already in the environment.
+// .dev.vars (KEY=value lines) wins over the environment for anything it sets, so a
+// stale RETELL_API_KEY left in a terminal can't point this at another Retell workspace
+// (that's what made the agent "not found" on 2026-11-10). Empty lines there fall back
+// to the environment.
 const devVars = join(root, '.dev.vars');
 if (existsSync(devVars)) {
   for (const line of readFileSync(devVars, 'utf8').split(/\r?\n/)) {
     const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*"?(.*?)"?\s*$/);
-    if (m && !process.env[m[1]]) process.env[m[1]] = m[2];
+    if (!m || !m[2]) continue;
+    if (process.env[m[1]] && process.env[m[1]] !== m[2]) {
+      console.warn(`Note: ${m[1]} in this terminal differs from .dev.vars; using .dev.vars.`);
+    }
+    process.env[m[1]] = m[2];
   }
 }
 
